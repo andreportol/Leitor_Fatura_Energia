@@ -1,0 +1,301 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel de Processamento | ALP SISTEMAS</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'css/index.css' %}">
+</head>
+<body class="bg-light">
+    <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm sticky-top">
+        <div class="container">
+            <a class="navbar-brand d-flex align-items-center" href="{% url 'core:index' %}">
+                <img src="{% static 'img/logomarca.png' %}" alt="Logo ALP SISTEMAS" class="brand-logo me-2">
+                <span class="brand-color">ALP</span> SISTEMAS
+            </a>
+            <div class="ms-auto d-flex align-items-center gap-3">
+                {% if cliente_nome %}<span class="text-muted small">Olá, {{ cliente_nome }}</span>{% endif %}
+                <button class="btn btn-primary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#profileFormWrapper" aria-expanded="false" aria-controls="profileFormWrapper">
+                    <i class="fas fa-pen-to-square me-1"></i>Atualizar dados
+                </button>
+                <a class="btn btn-outline-secondary btn-sm" href="{% url 'core:index' %}"><i class="fas fa-arrow-left me-2"></i>Voltar</a>
+                <form method="post" action="{% url 'core:logout' %}" class="mb-0">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger btn-sm"><i class="fas fa-right-from-bracket me-2"></i>Sair</button>
+                </form>
+            </div>
+        </div>
+    </nav>
+
+    <main class="py-5">
+        <div class="container">
+            {% if messages %}
+            <div class="row justify-content-center mb-3">
+                <div class="col-lg-10">
+                    {% for message in messages %}
+                        <div class="alert alert-{% if 'error' in message.tags %}danger{% else %}{{ message.tags|default:'info' }}{% endif %} mb-2" role="alert">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+            <div class="row g-4">
+                <div class="col-lg-8">
+                    <div class="card shadow border-0 mb-4">
+                        <div class="card-body p-4">
+                            <div class="d-flex align-items-center mb-3">
+                                <div class="me-3 text-primary"><i class="fas fa-file-upload fa-lg"></i></div>
+                                <div>
+                                    <p class="text-uppercase text-primary fw-semibold mb-1 small">Envio de faturas</p>
+                                    <h2 class="h5 mb-0">Envie múltiplos PDFs de uma vez</h2>
+                                </div>
+                            </div>
+                            <p class="text-muted small mb-3">Selecione vários arquivos PDF para enviar em lote. Cada arquivo contará como uma fatura processada.</p>
+                            <form>
+                                <div class="mb-3">
+                                    <label class="form-label">Faturas em PDF</label>
+                                    <input type="file" class="d-none" id="invoiceFiles" accept="application/pdf" multiple>
+                                    <label for="invoiceFiles" class="form-control d-flex align-items-center justify-content-between" role="button">
+                                        <span class="text-danger"><b><u>Clique aqui</u></b> para adicionar PDF</span>
+                                        <i class="fas fa-file-upload text-primary"></i>
+                                    </label>
+                                    <small class="text-muted">Envie até 10 faturas por vez para melhor desempenho.</small>
+                                    <ul class="list-group list-group-flush mt-3" id="fileList">
+                                        <li class="list-group-item small text-muted">Nenhum arquivo selecionado.</li>
+                                    </ul>
+                                </div>
+                                <button type="button" class="btn btn-primary"><i class="fas fa-gear me-2"></i>Processar</button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <div class="card shadow border-0 mb-4">
+                        <div class="card-body p-4">
+                            <div class="d-flex align-items-center mb-3">
+                                <div class="me-3 text-primary"><i class="fas fa-robot fa-lg"></i></div>
+                                <div>
+                                    <p class="text-uppercase text-primary fw-semibold mb-1 small">Diretrizes para IA</p>
+                                    <h2 class="h5 mb-0">Oriente o processamento das faturas</h2>
+                                </div>
+                            </div>
+                            <form method="post" action="{% url 'core:processamento' %}">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="update_prompt">
+                                <div class="mb-3">
+                                    <label class="form-label">Instruções</label>
+                                    <textarea class="form-control" name="prompt_template" rows="6" placeholder="Descreva o que a IA deve extrair ou como formatar o resultado.">{{ cliente.prompt_template }}</textarea>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="collapse" data-bs-target="#promptHelp" aria-expanded="false" aria-controls="promptHelp">
+                                        <i class="fas fa-circle-info me-2"></i>Como funciona
+                                    </button>
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-save me-2"></i>Salvar diretrizes
+                                    </button>
+                                </div>
+                            </form>
+                            <div class="collapse mt-3" id="promptHelp">
+                                <div class="alert alert-info mb-0">
+                                    <p class="mb-1"><strong>O que é?</strong> Texto usado pela IA para seguir regras de extração e formatação.</p>
+                                    <p class="mb-1"><strong>Dicas:</strong> Liste campos desejados, unidades e exemplos de saída. Mantenha frases curtas e claras.</p>
+                                    <p class="mb-0"><strong>Boa prática:</strong> Use marcadores (•) ou tópicos para cada regra.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="collapse" id="profileFormWrapper">
+                        <div class="card shadow border-0 h-100">
+                            <div class="card-body p-4">
+                                <div class="d-flex align-items-center mb-4">
+                                    <div class="me-3 text-primary"><i class="fas fa-user-gear fa-2x"></i></div>
+                                    <div>
+                                        <p class="text-uppercase text-primary fw-semibold mb-1 small">Dados do Cliente</p>
+                                        <h1 class="h4 mb-0">Atualize suas informações</h1>
+                                    </div>
+                                </div>
+                                <form method="post" action="{% url 'core:processamento' %}" id="profileForm">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="update_profile">
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <label class="form-label">E-mail</label>
+                                            <input type="email" class="form-control" name="email" value="{{ cliente.email }}" required>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label">Telefone</label>
+                                            <input type="text" class="form-control" name="telefone" id="phoneInput" value="{{ cliente.telefone }}" placeholder="(67) 99999-9999">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label">Estado</label>
+                                            <input type="text" class="form-control" name="estado" value="{{ cliente.estado }}">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label">Cidade</label>
+                                            <input type="text" class="form-control" name="cidade" value="{{ cliente.cidade }}">
+                                        </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Nova senha (opcional)</label>
+                                        <input type="password" class="form-control" name="password" id="passwordInput" autocomplete="new-password" placeholder="••••••••">
+                                        <small class="text-muted">Se alterar a senha, confirme abaixo. Você usará a nova senha no próximo login.</small>
+                                    </div>
+                                    <div class="col-md-6 d-none" id="passwordConfirmGroup">
+                                        <label class="form-label">Confirmar nova senha</label>
+                                        <input type="password" class="form-control" name="password_confirm" id="passwordConfirmInput" autocomplete="new-password" placeholder="••••••••">
+                                        <div class="text-danger small mt-1 d-none" id="passwordError">As senhas devem ser iguais.</div>
+                                    </div>
+                                    </div>
+                                    <div class="d-flex justify-content-end gap-2 mt-4">
+                                        <button type="button" class="btn btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#profileFormWrapper">
+                                            Sair sem salvar
+                                        </button>
+                                        <button type="submit" class="btn btn-primary">
+                                            <i class="fas fa-save me-2"></i>Salvar dados
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-4">
+                    <div class="card shadow border-0 h-100">
+                        <div class="card-body p-4">
+                            <div class="d-flex align-items-center mb-3">
+                                <div class="me-3 text-primary"><i class="fas fa-wallet fa-lg"></i></div>
+                                <div>
+                                    <p class="text-uppercase text-primary fw-semibold mb-1 small">Créditos disponíveis</p>
+                                    <h3 class="mb-0">R$ {{ cliente.valor_credito|default:"0.00" }}</h3>
+                                </div>
+                            </div>
+                            <p class="text-muted small mb-3">Seu saldo é atualizado quando o administrador confirma o pagamento.</p>
+                            <button class="btn btn-success w-100 mb-2" data-bs-toggle="modal" data-bs-target="#pixModal">
+                                <i class="fas fa-qrcode me-2"></i> Adquirir créditos (PIX)
+                            </button>
+                            <a class="d-inline-flex align-items-center gap-2 small text-primary fw-semibold text-decoration-none" data-bs-toggle="collapse" href="#creditInfo" role="button" aria-expanded="false" aria-controls="creditInfo">
+                                <i class="fas fa-circle-info"></i> Como funcionam os créditos?
+                            </a>
+                            <div class="collapse mt-2" id="creditInfo">
+                                <div class="card card-body border-0 bg-light">
+                                    <ul class="mb-0 small text-muted ps-3">
+                                        <li>Processamento médio de R$ 1,50 por fatura.</li>
+                                        <li>Tempo aproximado: 1 minuto por fatura.</li>
+                                        <li>Recomendamos enviar no máximo 10 faturas por vez.</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <p class="small text-muted mb-0">Após o pagamento, o administrador lançará o crédito e o valor aparecerá aqui.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal PIX -->
+    <div class="modal fade" id="pixModal" tabindex="-1" aria-labelledby="pixModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="pixModalLabel">Pague via PIX</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <p class="text-muted">Escaneie o QR Code abaixo para adquirir créditos. Após confirmação pelo administrador, seu saldo será atualizado automaticamente.</p>
+                    <div class="border rounded p-3">
+                        <img src="{% static 'img/qrcode_bancobrasil.jpeg' %}" alt="QR Code PIX" class="img-fluid" style="max-width: 320px;">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        (function() {
+            const input = document.getElementById('invoiceFiles');
+            const list = document.getElementById('fileList');
+            if (!input || !list) return;
+
+            const renderList = (files) => {
+                if (!files.length) {
+                    list.innerHTML = '<li class="list-group-item small text-muted">Nenhum arquivo selecionado.</li>';
+                    return;
+                }
+                list.innerHTML = files.map(file => {
+                    const sizeMb = (file.size / (1024 * 1024)).toFixed(2);
+                    return `<li class="list-group-item d-flex justify-content-between align-items-center">
+                                <span class="small">${file.name}</span>
+                                <span class="badge bg-secondary">${sizeMb} MB</span>
+                            </li>`;
+                }).join('');
+            };
+
+            input.addEventListener('change', () => {
+                renderList(Array.from(input.files || []));
+            });
+        })();
+
+        (function() {
+            const phoneInput = document.getElementById('phoneInput');
+            const passwordInput = document.getElementById('passwordInput');
+            const passwordConfirmGroup = document.getElementById('passwordConfirmGroup');
+            const passwordConfirmInput = document.getElementById('passwordConfirmInput');
+            const passwordError = document.getElementById('passwordError');
+            const profileForm = document.getElementById('profileForm');
+
+            const formatPhone = (value) => {
+                const digits = value.replace(/\D/g, '').slice(0, 11);
+                if (digits.length <= 2) return digits;
+                if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+                if (digits.length <= 10) return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6, 10)}`;
+                return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7, 11)}`;
+            };
+
+            if (phoneInput) {
+                phoneInput.addEventListener('input', (e) => {
+                    const caret = phoneInput.selectionStart;
+                    const formatted = formatPhone(e.target.value);
+                    phoneInput.value = formatted;
+                    phoneInput.setSelectionRange(formatted.length, formatted.length);
+                });
+                // aplica formatação inicial
+                phoneInput.value = formatPhone(phoneInput.value);
+            }
+
+            if (passwordInput && passwordConfirmGroup) {
+                const toggleConfirm = () => {
+                    const hasPassword = Boolean(passwordInput.value.trim());
+                    passwordConfirmGroup.classList.toggle('d-none', !hasPassword);
+                    if (!hasPassword && passwordConfirmInput) {
+                        passwordConfirmInput.value = '';
+                        passwordError.classList.add('d-none');
+                    }
+                };
+                passwordInput.addEventListener('input', toggleConfirm);
+                toggleConfirm();
+            }
+
+            if (profileForm && passwordInput && passwordConfirmInput && passwordError) {
+                profileForm.addEventListener('submit', (e) => {
+                    const pwd = passwordInput.value.trim();
+                    const conf = passwordConfirmInput.value.trim();
+                    if (pwd && pwd !== conf) {
+                        e.preventDefault();
+                        passwordError.classList.remove('d-none');
+                        passwordError.textContent = 'As senhas devem ser iguais.';
+                        passwordConfirmInput.focus();
+                    }
+                });
+            }
+        })();
+    </script>
+</body>
+</html>

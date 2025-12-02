@@ -1,0 +1,38 @@
+# ---- PYTHON ----
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtualenvs
+.venv/
+venv/
+env/
+
+# ---- DJANGO ----
+*.log
+*.pot
+*.pyc
+*.sqlite3
+db.sqlite3
+media/
+staticfiles/
+static_root/
+
+# Arquivos de configuração sensíveis
+.env
+*.env
+
+# ---- IDEs ----
+.vscode/
+.idea/
+
+# ---- SYSTEM ----
+.DS_Store
+Thumbs.db
+
+# ---- DOCKER (se usar) ----
+/docker-compose.override.yml
+
+# ---- TESTS ----
+.coverage
+htmlcov/

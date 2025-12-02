@@ -1,0 +1,101 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login | ALP SISTEMAS</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'css/index.css' %}">
+</head>
+<body class="bg-light">
+    <nav class="navbar navbar-light bg-white shadow-sm">
+        <div class="container d-flex justify-content-between">
+            <a class="navbar-brand d-flex align-items-center" href="{% url 'core:index' %}">
+                <img src="{% static 'img/logomarca.png' %}" alt="Logo ALP SISTEMAS" class="brand-logo me-2">
+                <span class="brand-color">ALP</span> SISTEMAS
+            </a>
+            <a class="btn btn-outline-primary" href="{% url 'core:index' %}"><i class="fas fa-arrow-left me-2"></i>Voltar</a>
+        </div>
+    </nav>
+
+    <main class="py-5">
+        <div class="container">
+            <div class="row justify-content-center">
+                <div class="col-lg-6 col-xl-5">
+                    <div class="text-center mb-4">
+                        <p class="text-uppercase text-primary fw-semibold mb-2">Acesso Seguro</p>
+                        <h1 class="h3 fw-bold">Entre para processar faturas</h1>
+                        <p class="text-muted mb-0">Use seu e-mail e senha para ir direto ao painel de processamento.</p>
+                    </div>
+
+                    <div class="card shadow border-0">
+                        <div class="card-body p-4">
+                            {% if error_message %}
+                                <div class="alert alert-danger small" role="alert">{{ error_message }}</div>
+                            {% endif %}
+                            {% if lockout_remaining_seconds %}
+                                <div class="alert alert-warning small d-flex align-items-center gap-2" role="alert">
+                                    <i class="fas fa-hourglass-half text-warning"></i>
+                                    <span>Login bloqueado. Aguarde <strong id="lockout-timer" data-remaining="{{ lockout_remaining_seconds }}"></strong> para tentar novamente.</span>
+                                </div>
+                            {% endif %}
+                            <form method="post" action="{% url 'core:login' %}">
+                                {% csrf_token %}
+                                <div class="mb-3">
+                                    <label for="email" class="form-label">E-mail</label>
+                                    <input type="email" class="form-control" id="email" name="email" placeholder="voce@empresa.com" required autofocus>
+                                </div>
+                                <div class="mb-4">
+                                    <label for="password" class="form-label">Senha</label>
+                                    <input type="password" class="form-control" id="password" name="password" placeholder="••••••••" required>
+                                </div>
+                                <div class="d-flex justify-content-between">
+                                    <a class="btn btn-outline-secondary" href="{% url 'core:index' %}">Voltar</a>
+                                    <button type="submit" class="btn btn-primary" id="login-submit" {% if lockout_remaining_seconds %}disabled{% endif %}>Entrar</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <p class="text-center text-muted small mt-3 mb-0">Ainda não tem acesso? <a href="{% url 'core:cadastro' %}">Crie sua conta</a>.</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        (function() {
+            const timerEl = document.getElementById('lockout-timer');
+            const submitBtn = document.getElementById('login-submit');
+
+            if (!timerEl) return;
+
+            let remaining = parseInt(timerEl.dataset.remaining, 10) || 0;
+
+            const formatTime = (seconds) => {
+                const mins = Math.floor(seconds / 60).toString().padStart(2, '0');
+                const secs = Math.floor(seconds % 60).toString().padStart(2, '0');
+                return `${mins}:${secs}`;
+            };
+
+            const tick = () => {
+                if (remaining <= 0) {
+                    timerEl.textContent = '00:00';
+                    if (submitBtn) submitBtn.removeAttribute('disabled');
+                    return;
+                }
+
+                timerEl.textContent = formatTime(remaining);
+                remaining -= 1;
+                setTimeout(tick, 1000);
+            };
+
+            tick();
+        })();
+    </script>
+</body>
+</html>

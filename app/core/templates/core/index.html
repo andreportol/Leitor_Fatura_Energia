@@ -1,0 +1,437 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ALP SISTEMAS - Análise Inteligente de Faturas Fotovoltaicas</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <!-- MY CSS -->
+     <link rel="stylesheet" href="{% static 'css/index.css' %}">
+    <style>
+        .footer-contact {
+            color: #fff;
+            text-decoration: none;
+        }
+        .footer-contact:hover,
+        .footer-contact:focus {
+            color: #0d6efd;
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm sticky-top">
+        <div class="container">
+            <a class="navbar-brand d-flex align-items-center" href="#">
+                <img src="{% static 'img/logomarca.png' %}" alt="Logo ALP SISTEMAS" class="brand-logo me-2">
+                <span class="brand-color">ALP</span> SISTEMAS
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="#home">Início</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#como-funciona">Como Funciona</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#processar">Processar Fatura</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#vantagens">Vantagens</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#contato">Contato</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'core:quem_somos' %}">Quem Somos</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'core:cadastro' %}">Cadastrar</a>
+                    </li>
+                    <li class="nav-item ms-lg-2">
+                        <a class="nav-link nav-link-cta d-flex align-items-center gap-2" href="{% url 'core:login' %}">
+                            <i class="fas fa-right-to-bracket"></i>
+                            <span>Login</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section id="home" class="hero-section">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-lg-6">
+                    <h1 class="display-4 fw-bold mb-4">Transforme faturas de energia em insights valiosos</h1>
+                    <p class="lead mb-4">Com a tecnologia de IA da ALP SISTEMAS, sua empresa de energia fotovoltaica pode analisar faturas de clientes e gerar relatórios personalizados automaticamente.</p>
+                    <a href="{% url 'core:cadastro' %}" class="btn btn-light btn-lg btn-custom">Experimente Agora</a>
+                </div>
+                <div class="col-lg-6">
+                    <img src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?ixlib=rb-4.0.3&auto=format&fit=crop&w=1350&q=80" alt="Análise de Dados com IA" class="img-fluid rounded shadow">
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Como Funciona -->
+    <section id="como-funciona" class="py-5">
+        <div class="container">
+            <div class="row">
+                <div class="col-12 mb-5">
+                    <h2 class="section-title">Como Funciona</h2>
+                    <p class="text-muted text-justify-indent">
+                        A plataforma da ALP SISTEMAS é simples, rápida e totalmente automatizada. O cliente realiza seu cadastro, adquire créditos e utiliza esses créditos para processar as faturas de energia da empresa de forma eficiente.
+                    </p>
+                    <p class="text-muted text-justify-indent">
+                        Cada empresa possui regras específicas e valores distintos de kWh. Por isso, o sistema aplica automação personalizada, configurada conforme as necessidades e modelos de negócio de cada cliente que ingressa na plataforma.
+                    </p>
+                    <p class="text-muted text-justify-indent mb-0">
+                        Após a configuração inicial, o cliente acessa uma tela exclusiva e realiza o upload das faturas. Em poucos minutos, elas são interpretadas, organizadas e transformadas em novos documentos no formato escolhido — prontos para serem enviados aos seus próprios clientes ou integrados ao sistema da empresa.
+                    </p>
+                </div>
+            </div>
+         
+            <div class="row">
+                <div class="col-lg-3 col-md-6 mb-4">
+                    <div class="process-step">
+                        <div class="step-number">1</div>
+                        <div>
+                            <h5>Upload da Fatura</h5>
+                            <p class="mb-0">Envie as faturas de energia dos clientes em PDF.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-3 col-md-6 mb-4">
+                    <div class="process-step">
+                        <div class="step-number">2</div>
+                        <div>
+                            <h5>Análise com IA</h5>
+                            <p class="mb-0">Nossa inteligência artificial extrai automaticamente os dados da fatura.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-3 col-md-6 mb-4">
+                    <div class="process-step">
+                        <div class="step-number">3</div>
+                        <div>
+                            <h5>Processamento</h5>
+                            <p class="mb-0">Geramos uma nova fatura de energia com regras própria da sua empresa.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-3 col-md-6 mb-4">
+                    <div class="process-step">
+                        <div class="step-number">4</div>
+                        <div>
+                            <h5>Resultado</h5>
+                            <p class="mb-0">Receba a fatura personalizada com análise completa.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Processar Fatura -->
+    <section id="processar" class="py-5 bg-light">
+        <div class="container">
+            <div class="row">
+                <div class="col-12 mb-5">
+                    <h2 class="section-title">Processar Fatura</h2>
+                    <p class="text-muted text-justify-indent mb-0">
+                        Em breve, clientes cadastrados terão uma área exclusiva para enviar e acompanhar o processamento das faturas com IA. Enquanto isso, assista ao passo a passo e veja um exemplo de fatura processada.
+                    </p>
+                    <div class="mt-3">
+                        <a href="{% url 'core:login' %}" class="btn btn-custom">Fazer login para processar</a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row g-4">
+                <div class="col-lg-7">
+                    <div class="card shadow h-100">
+                        <div class="card-body">
+                            <h4 class="card-title mb-3">Veja como funciona</h4>
+                            <div class="ratio ratio-16x9 rounded overflow-hidden mb-3">
+                                <iframe src="https://www.youtube.com/embed/be7E_3R8Uac" title="Como usar a plataforma ALP SISTEMAS" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+                            </div>
+                            <p class="text-muted mb-0">
+                                Demonstração rápida de upload, interpretação e geração de fatura personalizada. 
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-lg-5">
+                    <div class="card shadow h-100">
+                        <div class="card-body">
+                            <h4 class="card-title mb-3">Pré-visualização de fatura</h4>
+                            <div class="ratio ratio-4x3 mb-3 rounded overflow-hidden border">
+                                <object data="{% static 'docs/fatura_exemplo.pdf' %}" type="application/pdf">
+                                    <p class="p-3">Não foi possível exibir o PDF. <a href="{% static 'docs/fatura_exemplo.pdf' %}" target="_blank" rel="noopener">Abra em uma nova aba</a>.</p>
+                                </object>
+                            </div>
+                            <p class="small text-muted mb-0">Exemplo ilustrativo. Você pode substituir o arquivo em <code>static/docs/fatura_exemplo.pdf</code> pelo seu modelo.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Vantagens -->
+    <section id="vantagens" class="py-5">
+        <div class="container">
+            <div class="row">
+                <div class="col-12 text-center mb-5">
+                    <h2 class="section-title center-title">Vantagens para sua Empresa</h2>
+                    <p class="text-muted">Por que escolher a ALP SISTEMAS para análise de faturas</p>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-lg-4 col-md-6 mb-4">
+                    <div class="card feature-card shadow-sm h-100">
+                        <div class="card-body text-center p-4">
+                            <div class="feature-icon">
+                                <i class="fas fa-robot"></i>
+                            </div>
+                            <h4 class="card-title">IA Avançada</h4>
+                            <p class="card-text">Tecnologia de inteligência artificial que lê e interpreta faturas de qualquer distribuidora com precisão superior a 97%.</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-lg-4 col-md-6 mb-4">
+                    <div class="card feature-card shadow-sm h-100">
+                        <div class="card-body text-center p-4">
+                            <div class="feature-icon">
+                                <i class="fas fa-cogs"></i>
+                            </div>
+                            <h4 class="card-title">Processamento Automático de Faturas</h4>
+                            <p class="card-text">
+                            Recebemos, classificamos e processamos as faturas das suas unidades consumidoras
+                            com total automação, garantindo rapidez e zero retrabalho manual.
+                            </p>
+                        </div>
+                    </div>
+
+                </div>
+                
+                <div class="col-lg-4 col-md-6 mb-4">
+                    <div class="card feature-card shadow-sm h-100">
+                        <div class="card-body text-center p-4">
+                            <div class="feature-icon">
+                                <i class="fas fa-chart-line"></i>
+                            </div>
+                            <h4 class="card-title">Fatura Personalizada para Seu Cliente</h4>
+                            <p class="card-text">
+                            Geramos uma nova fatura com o nome do seu cliente a partir do código da UC,
+                            facilitando a gestão interna e melhorando a comunicação com seus contratantes.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-4 col-md-6 mb-4">
+                    <div class="card feature-card shadow-sm h-100">
+                        <div class="card-body text-center p-4">
+                            <div class="feature-icon">
+                                <i class="fas fa-brain"></i>
+                            </div>
+                            <h4 class="card-title">Validação Automática dos Dados</h4>
+                            <p class="card-text">
+                            Conferimos automaticamente todos os valores da fatura original,
+                            garantindo que cálculos, impostos e tarifas estejam corretos antes da emissão final.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Contato -->
+    <section id="contato" class="py-5 bg-dark text-white">
+        <div class="container">
+            <div class="row">
+                <div class="col-12 text-center mb-5">
+                    <h2 class="section-title center-title">Precisa de ajuda? Entre em contato e esclareça suas dúvidas.</h2>
+                    <p>Fale conosco para saber como podemos ajudar sua empresa.</p>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-lg-8">
+                    <form id="contactForm" method="post" action="{% url 'core:contact' %}">
+                        {% csrf_token %}
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="name" class="form-label">Nome</label>
+                                <input type="text" class="form-control" id="name" name="name" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="company" class="form-label">Empresa</label>
+                                <input type="text" class="form-control" id="company" name="company" required>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="email" class="form-label">E-mail</label>
+                                <input type="email" class="form-control" id="email" name="email" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="phone" class="form-label">Telefone</label>
+                                <input type="tel" class="form-control" id="phone" name="phone">
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="message" class="form-label">Mensagem</label>
+                            <textarea class="form-control" id="message" name="message" rows="4" required></textarea>
+                        </div>
+                        <div class="text-center">
+                            <button type="submit" class="btn btn-light btn-custom">Enviar Mensagem</button>
+                        </div>
+                        <div id="contactStatus" class="text-center mt-3"></div>
+                    </form>
+                </div>
+                <div class="col-lg-4 mt-4 mt-lg-0">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-body text-center">
+                            <div class="d-flex justify-content-center align-items-center mb-3">
+                                <i class="fab fa-whatsapp fa-3x text-success me-2"></i>
+                                <div class="text-start">
+                                    <p class="mb-0 fw-bold">Fale pelo WhatsApp</p>
+                                    <small class="text-muted">Aponte a câmera do celular</small>
+                                </div>
+                            </div>
+                                
+                                <div class="d-flex flex-column align-items-center">
+                                    <img src="{% static 'img/qrcode_whatsapp.jpeg' %}" alt="QR Code WhatsApp" class="img-fluid rounded shadow-sm mb-2" style="max-width: 240px;">
+                                    <a href="{{ whatsapp_url }}" target="_blank" class="btn btn-success w-100 mb-3">
+                                    <i class="fab fa-whatsapp me-2"></i>Fale direto no WhatsApp
+                                </a>
+                                </div>
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="py-4">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-lg-6 text-center text-lg-start mb-3 mb-lg-0">
+                    <h3 class="brand-color">ALP SISTEMAS</h3>
+                    <p class="mb-0">Transformando faturas em insights com inteligência artificial</p>
+                </div>
+                <div class="col-lg-6 text-center text-lg-end">
+                    <p class="mb-0">&copy; <span id="currentYear"></span> ALP SISTEMAS. Todos os direitos reservados.</p>
+                    <p class="mb-1">
+                        <a href="mailto:alpsistemascg@gmail.com" class="footer-contact">alpsistemascg@gmail.com</a> |
+                        <a href="tel:+5567992520749" class="footer-contact">(67) 99252-0749</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Bootstrap JS Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        // Set current year in footer
+        document.getElementById('currentYear').textContent = new Date().getFullYear();
+
+        const contactForm = document.getElementById('contactForm');
+        const contactStatus = document.getElementById('contactStatus');
+        const contactNameInput = document.getElementById('name');
+        const navLinks = document.querySelectorAll('.navbar-nav .nav-link');
+        const navbarCollapse = document.getElementById('navbarNav');
+        const bsCollapse = navbarCollapse ? new bootstrap.Collapse(navbarCollapse, { toggle: false }) : null;
+
+        // Autofocus removido a pedido
+
+        // Contact form submission
+        contactForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            contactStatus.textContent = 'Enviando sua mensagem...';
+            contactStatus.className = 'text-center mt-3 text-info';
+
+            const formData = new FormData(contactForm);
+            const csrfToken = formData.get('csrfmiddlewaretoken');
+
+            try {
+                const response = await fetch(contactForm.action, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrfToken,
+                    },
+                    body: formData,
+                });
+
+                const data = await response.json();
+
+                if (!response.ok || !data.success) {
+                    contactStatus.textContent = data.error || 'Não foi possível enviar sua mensagem.';
+                    contactStatus.className = 'text-center mt-3 text-danger';
+                    return;
+                }
+
+                contactStatus.textContent = 'Mensagem enviada com sucesso! Em breve entraremos em contato.';
+                contactStatus.className = 'text-center mt-3 text-success';
+                contactForm.reset();
+            } catch (error) {
+                contactStatus.textContent = 'Ocorreu um erro ao enviar. Tente novamente em instantes.';
+                contactStatus.className = 'text-center mt-3 text-danger';
+            }
+        });
+
+        function setActiveNavLink(link) {
+            navLinks.forEach(nav => nav.classList.remove('active'));
+            if (link) {
+                link.classList.add('active');
+            }
+        }
+        
+        // Smooth scrolling for navigation links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function(e) {
+                e.preventDefault();
+                
+                const targetId = this.getAttribute('href');
+                if (targetId === '#') return;
+                
+                const targetElement = document.querySelector(targetId);
+                if (targetElement) {
+                    targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+
+                if (this.classList.contains('nav-link')) {
+                    setActiveNavLink(this);
+                }
+
+                if (bsCollapse && navbarCollapse.classList.contains('show')) {
+                    bsCollapse.hide();
+                }
+            });
+        });
+    </script>
+</body>
+</html>
