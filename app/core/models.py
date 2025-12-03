@@ -29,7 +29,7 @@ class Cliente(Base):
         verbose_name='Diretrizes para IA', 
         blank=True, 
         null=True,                          
-        default= '''
+        default= ''' Regras de Negócio:
         - "nome do cliente"
         - "data de emissao"
         - "data de vencimento"

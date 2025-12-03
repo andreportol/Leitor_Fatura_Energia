@@ -11,22 +11,42 @@
     <link rel="stylesheet" href="{% static 'css/index.css' %}">
 </head>
 <body class="bg-light">
-    <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm sticky-top">
+    <nav class="navbar navbar-expand-md navbar-light bg-white shadow-sm sticky-top">
         <div class="container">
-            <a class="navbar-brand d-flex align-items-center" href="{% url 'core:index' %}">
-                <img src="{% static 'img/logomarca.png' %}" alt="Logo ALP SISTEMAS" class="brand-logo me-2">
-                <span class="brand-color">ALP</span> SISTEMAS
+            <a class="navbar-brand d-flex flex-column flex-md-row align-items-start align-items-md-center gap-2" href="{% url 'core:index' %}">
+                <img src="{% static 'img/logomarca.png' %}" alt="Logo ALP SISTEMAS" class="brand-logo me-2 d-none d-md-inline-block">
+                <div class="d-flex flex-column lh-1">
+                    <div class="d-flex align-items-center">
+                        <span class="brand-color">ALP</span>
+                        <span class="ms-1">SISTEMAS</span>
+                    </div>
+                    {% if cliente_nome %}<span class="text-muted fs-5">Olá, {{ cliente_nome }}</span>{% endif %}
+                </div>
             </a>
-            <div class="ms-auto d-flex align-items-center gap-3">
-                {% if cliente_nome %}<span class="text-muted small">Olá, {{ cliente_nome }}</span>{% endif %}
-                <button class="btn btn-primary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#profileFormWrapper" aria-expanded="false" aria-controls="profileFormWrapper">
-                    <i class="fas fa-pen-to-square me-1"></i>Atualizar dados
-                </button>
-                <a class="btn btn-outline-secondary btn-sm" href="{% url 'core:index' %}"><i class="fas fa-arrow-left me-2"></i>Voltar</a>
-                <form method="post" action="{% url 'core:logout' %}" class="mb-0">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-danger btn-sm"><i class="fas fa-right-from-bracket me-2"></i>Sair</button>
-                </form>
+            <button class="navbar-toggler ms-auto" type="button" data-bs-toggle="collapse" data-bs-target="#navbarMenu" aria-controls="navbarMenu" aria-expanded="false" aria-label="Alternar navegação">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse justify-content-end" id="navbarMenu">
+                <ul class="navbar-nav align-items-md-center ms-auto gap-md-3">
+                    <li class="nav-item">
+                        <a class="nav-link px-0 text-primary fw-semibold" data-bs-toggle="collapse" href="#profileFormWrapper" role="button" aria-expanded="false" aria-controls="profileFormWrapper">
+                            <i class="fas fa-pen-to-square me-1"></i>Atualizar dados
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link px-0 text-secondary fw-semibold" href="{% url 'core:index' %}">
+                            <i class="fas fa-arrow-left me-2"></i>Voltar
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <form method="post" action="{% url 'core:logout' %}" class="mb-0">
+                            {% csrf_token %}
+                            <a href="#" class="nav-link px-0 text-danger fw-semibold d-inline-flex align-items-center gap-2" onclick="this.closest('form').submit(); return false;">
+                                <i class="fas fa-right-from-bracket"></i>Sair
+                            </a>
+                        </form>
+                    </li>
+                </ul>
             </div>
         </div>
     </nav>
@@ -44,7 +64,7 @@
             {% endif %}
             <div class="row g-4">
                 <div class="col-lg-8">
-                    <div class="card shadow border-0 mb-4">
+                    <div class="card shadow border-2 border-secondary-subtle rounded-4 mb-4">
                         <div class="card-body p-4">
                             <div class="d-flex align-items-center mb-3">
                                 <div class="me-3 text-primary"><i class="fas fa-file-upload fa-lg"></i></div>
@@ -67,12 +87,13 @@
                                         <li class="list-group-item small text-muted">Nenhum arquivo selecionado.</li>
                                     </ul>
                                 </div>
-                                <button type="button" class="btn btn-primary"><i class="fas fa-gear me-2"></i>Processar</button>
+                                <button type="button" class="btn btn-primary" id="processButton"><i class="fas fa-gear me-2"></i>Processar</button>
+                                <div class="text-muted small mt-2 d-none" id="processStatus">Botão em desenvolvimento.</div>
                             </form>
                         </div>
                     </div>
 
-                    <div class="card shadow border-0 mb-4">
+                    <div class="card shadow border-2 border-secondary-subtle rounded-4 mb-4">
                         <div class="card-body p-4">
                             <div class="d-flex align-items-center mb-3">
                                 <div class="me-3 text-primary"><i class="fas fa-robot fa-lg"></i></div>
@@ -108,7 +129,7 @@
                     </div>
 
                     <div class="collapse" id="profileFormWrapper">
-                        <div class="card shadow border-0 h-100">
+                        <div class="card shadow border-2 border-secondary-subtle rounded-4 h-100">
                             <div class="card-body p-4">
                                 <div class="d-flex align-items-center mb-4">
                                     <div class="me-3 text-primary"><i class="fas fa-user-gear fa-2x"></i></div>
@@ -163,7 +184,7 @@
                 </div>
 
                 <div class="col-lg-4">
-                    <div class="card shadow border-0 h-100">
+                    <div class="card shadow border-2 border-secondary-subtle rounded-4 h-100">
                         <div class="card-body p-4">
                             <div class="d-flex align-items-center mb-3">
                                 <div class="me-3 text-primary"><i class="fas fa-wallet fa-lg"></i></div>
@@ -240,6 +261,16 @@
 
             input.addEventListener('change', () => {
                 renderList(Array.from(input.files || []));
+            });
+        })();
+
+        (function() {
+            const processButton = document.getElementById('processButton');
+            const processStatus = document.getElementById('processStatus');
+            if (!processButton || !processStatus) return;
+
+            processButton.addEventListener('click', () => {
+                processStatus.classList.remove('d-none');
             });
         })();
 
