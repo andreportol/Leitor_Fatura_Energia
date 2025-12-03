@@ -442,6 +442,8 @@ class ProcessamentoView(LoginRequiredMixin, TemplateView):
             return redirect('core:processamento')
 
         item = processed[idx]
+        # Limpa após o download para ocultar o card
+        self._set_processed_files(request, [])
         response = HttpResponse(item.get('content', ''), content_type='text/html')
         response['Content-Disposition'] = f'attachment; filename="{item.get("name", "fatura.html")}"'
         return response
@@ -458,6 +460,9 @@ class ProcessamentoView(LoginRequiredMixin, TemplateView):
                 zf.writestr(item.get('name', 'fatura.html'), item.get('content', ''))
         buffer.seek(0)
 
+        # Limpa após o download zipado para ocultar o card
+        self._set_processed_files(request, [])
+
         response = HttpResponse(buffer.getvalue(), content_type='application/zip')
         response['Content-Disposition'] = 'attachment; filename="faturas.zip"'
         return response
@@ -467,7 +472,9 @@ class ProcessamentoView(LoginRequiredMixin, TemplateView):
         cliente = getattr(self.request.user, 'cliente', None)
         context['cliente'] = cliente
         context['cliente_nome'] = self.request.session.get('cliente_nome', '') or getattr(self.request.user, 'first_name', '')
-        context['processed_files'] = self._get_processed_files(self.request)
+        processed = self._get_processed_files(self.request)
+        context['processed_files'] = processed
+        context['has_processed_files'] = bool(processed)
         return context
 
     def _get_processed_files(self, request):
