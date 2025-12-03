@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Carrega as variáveis do arquivo .env na raiz do projeto
-load_dotenv(BASE_DIR / '.env')
+load_dotenv(dotenv_path=str(BASE_DIR / '.env'))
 
 
 def env(name, default=None):
@@ -28,7 +28,7 @@ def env_list(name, default=''):
 SECRET_KEY = env('SECRET_KEY', 'django-insecure-h_*m42&o=gyt_t(wujyv5gm=howo)lyyr-$lo-z+q=k602!in(')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = env_bool('DEBUG', False)
+DEBUG = env_bool('DEBUG', True)
 
 ALLOWED_HOSTS = env_list('ALLOWED_HOSTS', '*')
 CSRF_TRUSTED_ORIGINS = env_list('CSRF_TRUSTED_ORIGINS', 'https://alpsistemas.up.railway.app')

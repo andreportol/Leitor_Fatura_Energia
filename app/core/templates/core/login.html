@@ -11,13 +11,43 @@
     <link rel="stylesheet" href="{% static 'css/index.css' %}">
 </head>
 <body class="bg-light">
-    <nav class="navbar navbar-light bg-white shadow-sm">
-        <div class="container d-flex justify-content-between">
+    <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm sticky-top">
+        <div class="container">
             <a class="navbar-brand d-flex align-items-center" href="{% url 'core:index' %}">
                 <img src="{% static 'img/logomarca.png' %}" alt="Logo ALP SISTEMAS" class="brand-logo me-2">
                 <span class="brand-color">ALP</span> SISTEMAS
             </a>
-            <a class="btn btn-outline-primary" href="{% url 'core:index' %}"><i class="fas fa-arrow-left me-2"></i>Voltar</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'core:index' %}#home">Início</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'core:index' %}#como-funciona">Como Funciona</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% if user.is_authenticated %}{% url 'core:processamento' %}{% else %}{% url 'core:index' %}#processar{% endif %}">Processar Fatura</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'core:index' %}#vantagens">Vantagens</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'core:index' %}#contato">Contato</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'core:quem_somos' %}">Quem Somos</a>
+                    </li>
+                    <li class="nav-item ms-lg-2">
+                        <a class="nav-link nav-link-cta d-flex align-items-center gap-2 active" aria-current="page" href="{% url 'core:login' %}">
+                            <i class="fas fa-right-to-bracket"></i>
+                            <span>Login</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
         </div>
     </nav>
 
@@ -67,35 +97,6 @@
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        (function() {
-            const timerEl = document.getElementById('lockout-timer');
-            const submitBtn = document.getElementById('login-submit');
-
-            if (!timerEl) return;
-
-            let remaining = parseInt(timerEl.dataset.remaining, 10) || 0;
-
-            const formatTime = (seconds) => {
-                const mins = Math.floor(seconds / 60).toString().padStart(2, '0');
-                const secs = Math.floor(seconds % 60).toString().padStart(2, '0');
-                return `${mins}:${secs}`;
-            };
-
-            const tick = () => {
-                if (remaining <= 0) {
-                    timerEl.textContent = '00:00';
-                    if (submitBtn) submitBtn.removeAttribute('disabled');
-                    return;
-                }
-
-                timerEl.textContent = formatTime(remaining);
-                remaining -= 1;
-                setTimeout(tick, 1000);
-            };
-
-            tick();
-        })();
-    </script>
+    <script src="{% static 'js/login.js' %}"></script>
 </body>
 </html>

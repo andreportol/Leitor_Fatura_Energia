@@ -9,17 +9,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{% static 'css/index.css' %}">
-    <style>
-        .footer-contact {
-            color: #fff;
-            text-decoration: none;
-        }
-        .footer-contact:hover,
-        .footer-contact:focus {
-            color: #0d6efd;
-            text-decoration: underline;
-        }
-    </style>
+    <link rel="stylesheet" href="{% static 'css/footer.css' %}">
 </head>
 <body class="bg-light d-flex flex-column min-vh-100">
     <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm sticky-top">
@@ -40,7 +30,7 @@
                         <a class="nav-link" href="{% url 'core:index' %}#como-funciona">Como Funciona</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{% url 'core:index' %}#processar">Processar Fatura</a>
+                        <a class="nav-link" href="{% if user.is_authenticated %}{% url 'core:processamento' %}{% else %}{% url 'core:index' %}#processar{% endif %}">Processar Fatura</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'core:index' %}#vantagens">Vantagens</a>
@@ -107,7 +97,7 @@
                                             <select id="companyCity" name="companyCity" class="form-select" required></select>
                                         </div>
                                     </div>
-                                    <div class="text-start text-sm-end">
+                                    <div class="text-center text-sm-end">
                                         <button type="submit" class="btn btn-primary btn-custom">Enviar cadastro</button>
                                     </div>
                                     <div id="companyStatus" class="text-center mt-3"></div>
@@ -128,10 +118,10 @@
                     <p class="mb-0">Transformando faturas em insights com inteligência artificial</p>
                 </div>
                 <div class="col-lg-6 text-center text-lg-end">
-                    <p class="mb-0">&copy; <span id="currentYear"></span> ALP SISTEMAS. Todos os direitos reservados.</p>
+                    <p class="mb-0 footer-copy">&copy; <span id="currentYear"></span> ALP SISTEMAS. Todos os direitos reservados.</p>
                     <p class="mb-1">
-                        <a href="mailto:alpsistemascg@gmail.com" class="footer-contact">alpsistemascg@gmail.com</a> |
-                        <a href="tel:+5567992520749" class="footer-contact">(67) 99252-0749</a>
+                        <a href="mailto:alpsistemascg@gmail.com" class="footer-contact">alpsistemascg@gmail.com</a>
+                        <a href="tel:+5567992520749" class="footer-contact footer-contact-phone">(67) 99252-0749</a>
                     </p>
                 </div>
             </div>
@@ -139,143 +129,6 @@
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        document.getElementById('currentYear').textContent = new Date().getFullYear();
-
-        const companyForm = document.getElementById('companyForm');
-        const companyStatus = document.getElementById('companyStatus');
-        const companyState = document.getElementById('companyState');
-        const companyCity = document.getElementById('companyCity');
-        const companyPassword = document.getElementById('companyPassword');
-        const companyPasswordConfirm = document.getElementById('companyPasswordConfirm');
-        const togglePassword = document.getElementById('togglePassword');
-        const togglePasswordConfirm = document.getElementById('togglePasswordConfirm');
-        const navLinks = document.querySelectorAll('.navbar-nav .nav-link');
-        const navbarCollapse = document.getElementById('navbarNav');
-        const bsCollapse = navbarCollapse ? new bootstrap.Collapse(navbarCollapse, { toggle: false }) : null;
-
-        const stateCityMap = {
-            'AC': ['Rio Branco', 'Cruzeiro do Sul', 'Sena Madureira', 'Tarauacá'],
-            'AL': ['Maceió', 'Arapiraca', 'Palmeira dos Índios', 'Rio Largo'],
-            'AP': ['Macapá', 'Santana', 'Oiapoque', 'Laranjal do Jari'],
-            'AM': ['Manaus', 'Parintins', 'Itacoatiara', 'Manacapuru', 'Coari'],
-            'BA': ['Salvador', 'Feira de Santana', 'Vitória da Conquista', 'Ilhéus', 'Itabuna', 'Lauro de Freitas', 'Juazeiro'],
-            'CE': ['Fortaleza', 'Juazeiro do Norte', 'Sobral', 'Maracanaú', 'Caucaia', 'Crato'],
-            'DF': ['Brasília'],
-            'ES': ['Vitória', 'Vila Velha', 'Cariacica', 'Serra', 'Linhares', 'Colatina'],
-            'GO': ['Goiânia', 'Anápolis', 'Aparecida de Goiânia', 'Rio Verde', 'Luziânia', 'Valparaíso de Goiás'],
-            'MA': ['São Luís', 'Imperatriz', 'Caxias', 'Timon', 'Bacabal'],
-            'MT': ['Cuiabá', 'Várzea Grande', 'Rondonópolis', 'Sinop', 'Sorriso'],
-            'MS': ['Campo Grande', 'Dourados', 'Três Lagoas', 'Corumbá', 'Naviraí', 'Ponta Porã'],
-            'MG': ['Belo Horizonte', 'Uberlândia', 'Juiz de Fora', 'Contagem', 'Montes Claros', 'Uberaba', 'Betim'],
-            'PA': ['Belém', 'Ananindeua', 'Santarém', 'Marabá', 'Parauapebas'],
-            'PB': ['João Pessoa', 'Campina Grande', 'Patos', 'Santa Rita'],
-            'PR': ['Curitiba', 'Londrina', 'Maringá', 'Cascavel', 'Ponta Grossa', 'Foz do Iguaçu'],
-            'PE': ['Recife', 'Olinda', 'Jaboatão dos Guararapes', 'Caruaru', 'Petrolina'],
-            'PI': ['Teresina', 'Parnaíba', 'Picos', 'Floriano'],
-            'RJ': ['Rio de Janeiro', 'Niterói', 'Campos dos Goytacazes', 'Petrópolis', 'Volta Redonda', 'Duque de Caxias', 'Nova Iguaçu'],
-            'RN': ['Natal', 'Mossoró', 'Parnamirim', 'Caicó'],
-            'RS': ['Porto Alegre', 'Caxias do Sul', 'Pelotas', 'Santa Maria', 'Passo Fundo', 'Novo Hamburgo'],
-            'RO': ['Porto Velho', 'Ji-Paraná', 'Ariquemes', 'Cacoal'],
-            'RR': ['Boa Vista', 'Rorainópolis', 'Caracaraí'],
-            'SC': ['Florianópolis', 'Joinville', 'Blumenau', 'Chapecó', 'Itajaí', 'Criciúma'],
-            'SP': ['São Paulo', 'Guarulhos', 'Campinas', 'Santos', 'Ribeirão Preto', 'Sorocaba', 'São José dos Campos', 'Osasco', 'Santo André', 'São Bernardo do Campo'],
-            'SE': ['Aracaju', 'Nossa Senhora do Socorro', 'Lagarto'],
-            'TO': ['Palmas', 'Araguaína', 'Gurupi', 'Porto Nacional'],
-        };
-
-        function populateStates() {
-            companyState.innerHTML = '<option value="" disabled selected>Selecione o estado</option>';
-            Object.keys(stateCityMap)
-                .sort()
-                .forEach(uf => {
-                    const opt = document.createElement('option');
-                    opt.value = uf;
-                    opt.textContent = uf;
-                    companyState.appendChild(opt);
-                });
-            populateCities('');
-        }
-
-        function populateCities(uf) {
-            companyCity.innerHTML = '<option value="" disabled selected>Selecione a cidade</option>';
-            if (!uf || !stateCityMap[uf]) return;
-            stateCityMap[uf]
-                .slice()
-                .sort()
-                .forEach(city => {
-                    const opt = document.createElement('option');
-                    opt.value = city;
-                    opt.textContent = city;
-                    companyCity.appendChild(opt);
-                });
-        }
-
-        companyState.addEventListener('change', (e) => {
-            populateCities(e.target.value);
-        });
-
-        companyForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            if (companyPassword && companyPasswordConfirm) {
-                if (companyPassword.value !== companyPasswordConfirm.value) {
-                    companyStatus.textContent = 'As senhas não conferem.';
-                    companyStatus.className = 'text-center mt-3 text-danger';
-                    return;
-                }
-            }
-            companyStatus.textContent = 'Cadastro recebido! Em breve entraremos em contato para liberar o acesso.';
-            companyStatus.className = 'text-center mt-3 text-success';
-            companyForm.reset();
-            populateCities('');
-        });
-
-        function toggleVisibility(input, button) {
-            if (!input || !button) return;
-            button.addEventListener('click', () => {
-                const isPassword = input.type === 'password';
-                input.type = isPassword ? 'text' : 'password';
-                const icon = button.querySelector('i');
-                if (icon) {
-                    icon.classList.toggle('fa-eye');
-                    icon.classList.toggle('fa-eye-slash');
-                }
-            });
-        }
-
-        toggleVisibility(companyPassword, togglePassword);
-        toggleVisibility(companyPasswordConfirm, togglePasswordConfirm);
-
-        populateStates();
-
-        function setActiveNavLink(link) {
-            navLinks.forEach(nav => nav.classList.remove('active'));
-            if (link) {
-                link.classList.add('active');
-            }
-        }
-
-        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-            anchor.addEventListener('click', function(e) {
-                e.preventDefault();
-                
-                const targetId = this.getAttribute('href');
-                if (targetId === '#') return;
-                
-                const targetElement = document.querySelector(targetId);
-                if (targetElement) {
-                    targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }
-
-                if (this.classList.contains('nav-link')) {
-                    setActiveNavLink(this);
-                }
-
-                if (bsCollapse && navbarCollapse.classList.contains('show')) {
-                    bsCollapse.hide();
-                }
-            });
-        });
-    </script>
+    <script src="{% static 'js/cadastro.js' %}"></script>
 </body>
 </html>
