@@ -1,0 +1,537 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fatura de Energia - ALP SISTEMAS</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Segoe UI", Arial, sans-serif;
+        padding: 28px;
+        color: #333;
+        background-color: #f5f6f7;
+      }
+
+      .container {
+        max-width: 880px;
+        margin: 0 auto;
+        border: 2px solid #111;
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 25px 65px rgba(0, 0, 0, 0.12);
+        background-color: #ffffff;
+      }
+
+      .header {
+        background: linear-gradient(110deg, #0f0f0f 0%, #131313 65%, #ffd700 100%);
+        color: white;
+        padding: 28px 36px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 24px;
+      }
+
+      .logo-container {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+      }
+
+      .logo-image {
+        max-height: 92px;
+        width: auto;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.08);
+        padding: 6px 12px;
+        box-shadow: 0 12px 25px rgba(0, 0, 0, 0.26);
+      }
+
+      .logo-tagline {
+        font-size: 0.82rem;
+        letter-spacing: 0.24em;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.78);
+      }
+
+      .invoice-title {
+        text-align: right;
+      }
+
+      .invoice-title h1 {
+        font-size: 2.1rem;
+        margin-bottom: 6px;
+        letter-spacing: 0.24em;
+        text-transform: uppercase;
+      }
+
+      .invoice-title p {
+        font-size: 0.98rem;
+        line-height: 1.5;
+      }
+
+      .client-info {
+        background: #fff9e6;
+        padding: 28px 36px;
+        border-bottom: 2px dashed #111;
+      }
+
+      .client-info h3,
+      .section-title {
+        color: #222;
+        margin-bottom: 18px;
+        padding-bottom: 8px;
+        border-bottom: 2px solid #ffd700;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        font-size: 1rem;
+      }
+
+      .info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 10px 18px;
+      }
+
+      .info-item {
+        margin-bottom: 8px;
+        font-size: 0.94rem;
+      }
+
+      .info-item strong {
+        color: #111;
+      }
+
+      .highlight {
+        color: #111;
+        font-weight: 600;
+      }
+
+      .address-info {
+        margin-top: 16px;
+        padding-top: 16px;
+        border-top: 1px solid rgba(0, 0, 0, 0.15);
+        font-size: 0.94rem;
+        line-height: 1.6;
+      }
+
+      .invoice-summary {
+        display: flex;
+        justify-content: space-between;
+        gap: 22px;
+        padding: 26px 36px;
+        background-color: #fff;
+      }
+
+      .summary-box {
+        border: 2px solid #111;
+        padding: 18px 22px;
+        border-radius: 12px;
+        flex: 1;
+        background-color: #fff;
+        box-shadow: 0 16px 35px rgba(0, 0, 0, 0.08);
+      }
+
+      .summary-box h3 {
+        color: #111;
+        margin-bottom: 16px;
+        padding-bottom: 8px;
+        border-bottom: 2px solid #ffd700;
+        text-transform: uppercase;
+        letter-spacing: 0.16em;
+      }
+
+      .highlight-box {
+        background: linear-gradient(135deg, #fff9e6, #fff4bf);
+        border-left: 4px solid #ffd700;
+      }
+
+      /* Divisor reutilizável para seções dentro de caixas de resumo */
+      .section-divider {
+        margin-top: 16px;
+        padding-top: 12px;
+        border-top: 2px solid #ffd700;
+      }
+
+      .value {
+        font-weight: 700;
+        color: #111;
+      }
+
+      .value-economia {
+        color: #c62828;
+      }
+
+      /* Destaque para o valor a pagar */
+      .valor-pagar {
+        color: #c62828;
+        font-weight: 800;
+        font-size: 1.15rem; /* levemente maior para dar ênfase */
+      }
+
+      .status-badge {
+        display: inline-block;
+        padding: 6px 14px;
+        border-radius: 999px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .status-open {
+        background: rgba(214, 48, 49, 0.12);
+        color: #d63031;
+      }
+
+      .status-paid {
+        background: rgba(0, 184, 148, 0.12);
+        color: #00b894;
+      }
+
+      .energy-details {
+        background-color: #f8f9fa;
+        padding: 24px 36px;
+      }
+
+      .energy-details h3 {
+        margin-bottom: 14px;
+      }
+
+      .energy-item {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 8px;
+        font-size: 0.95rem;
+      }
+
+      .energy-item span:first-child {
+        color: #555;
+      }
+
+      .bandeira-vermelha {
+        color: #d63031;
+        font-weight: 700;
+      }
+
+      .bandeira-amarela {
+        color: #fdcb6e;
+        font-weight: 700;
+      }
+
+      .bandeira-verde {
+        color: #00b894;
+        font-weight: 700;
+      }
+
+      .consumption-history {
+        padding: 0 24px 18px; /* reduzir margens para economizar espaço */
+      }
+
+      .consumption-history table {
+        width: 100%;
+        border-collapse: collapse;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 18px 38px rgba(0, 0, 0, 0.08);
+      }
+
+      .consumption-history th {
+        background: #111;
+        color: #f8f8f8;
+        text-align: left;
+        text-transform: uppercase;
+        letter-spacing: 0.08em; /* menos espaçamento entre letras */
+        padding: 8px 12px; /* reduzir padding */
+        font-size: 0.68rem; /* letras menores */
+        line-height: 1.2; /* compactar altura da linha */
+      }
+
+      .consumption-history td {
+        border: 1px solid #ddd;
+        padding: 8px 12px; /* reduzir padding */
+        font-size: 0.8rem; /* letras menores */
+        line-height: 1.25; /* compactar altura da linha */
+      }
+
+      .consumption-history tr:nth-child(even) {
+        background-color: #fafafa;
+      }
+
+      .consumption-history tr:hover {
+        background-color: #fff7d1;
+      }
+
+      .consumption-badge {
+        background-color: #ffd700;
+        color: #111;
+        padding: 2px 10px;
+        border-radius: 999px;
+        font-size: 0.70rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+
+      .zero-consumption {
+        color: #999;
+        font-style: italic;
+      }
+
+      .historico-resumo {
+        margin-top: 16px;
+        padding: 14px 18px;
+        background-color: #f8f9fa;
+        border-radius: 10px;
+        font-size: 0.9rem;
+      }
+
+      .barcode-area {
+        text-align: center;
+        margin: 22px 36px 32px;
+        padding: 16px 18px;
+        background-color: #fff;
+        border-top: 2px dashed #111;
+      }
+
+      .barcode-placeholder {
+        min-height: 95px;
+        background-color: #f1f1f1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #666;
+        font-style: italic;
+        border-radius: 12px;
+      }
+
+      .qrcode-image {
+        width: 165px;
+        display: block;
+        margin: 0 auto 8px;
+        border-radius: 12px;
+        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+        background: #fff;
+        padding: 5px;
+      }
+
+      .qrcode-caption {
+        font-size: 0.65rem;
+        color: #666;
+        letter-spacing: 0.04em;
+      }
+
+      .footer {
+        background-color: #111;
+        color: white;
+        padding: 24px 36px;
+        font-size: 0.88rem;
+        display: grid;
+        gap: 12px;
+      }
+
+      .warning {
+        color: #ffd700;
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+      }
+
+      .contact-info {
+        font-size: 0.84rem;
+        line-height: 1.6;
+        color: rgba(255, 255, 255, 0.82);
+      }
+
+      @media print {
+        body {
+          padding: 0;
+          background: white;
+        }
+        .container {
+          box-shadow: none;
+          border: 1px solid #111;
+        }
+      }
+
+      .barcode-slot {
+        margin-top: 18px;
+        width: 100%;
+        height: 82px;
+        border: 2px dashed rgba(0, 0, 0, 0.25);
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: rgba(0, 0, 0, 0.45);
+        font-size: 0.9rem;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+    </style>
+  </head>
+  <body>
+    {% static 'img/logomarca.png' as default_logo %}
+    {% static 'img/qrcode_bancobrasil.jpeg' as default_qrcode %}
+    <div class="container">
+      <header class="header">
+        <div class="logo-container">
+          <img
+            src="{{ logo_path|default:default_logo }}"
+            alt="ALP SISTEMAS"
+            class="logo-image"
+          />
+          
+        </div>
+        <div class="invoice-title">
+          <h1>Fatura de Energia</h1>
+          <p><strong>Mês de Referência:</strong> {{ mes_referencia }}</p>
+        </div>
+      </header>
+
+      <section class="client-info">
+        <h3>Dados do Cliente</h3>
+        <div class="info-grid">
+          <div class="info-item">
+            <strong>Nome:</strong>
+            <span class="highlight">{{ cliente.nome }}</span>
+          </div>
+          <div class="info-item">
+            <strong>Data de Emissão:</strong>
+            <span class="highlight">{{ fatura.data_emissao }}</span>
+          </div>
+          <div class="info-item">
+            <strong>Código UC:</strong>
+            <span class="highlight">{{ cliente.codigo_uc }}</span>
+          </div>
+          <div class="info-item">
+            <strong>Data de Vencimento:</strong>
+            <span class="highlight">{{ fatura.data_vencimento }}</span>
+          </div>
+          <div class="info-item">
+            <strong>Saldo Acumulado:</strong>
+            <span class="highlight">{{ fatura.saldo_acumulado_display }}</span>
+          </div>
+        </div>       
+      </section>
+
+      <section class="invoice-summary">
+        <div class="summary-box highlight-box">
+          <h3>Economia</h3>
+          {% if economia_display %}
+          <p>
+            <strong>Economia:</strong>
+            <span class="value value-economia">"{{ economia_display }}"</span>
+          </p>
+          <div class="section-divider"></div>
+          {% endif %}
+        </div>
+        <div class="summary-box highlight-box">
+          <h3>Valores</h3>
+          <p>
+            <strong>Valor a Pagar:</strong>
+            <span class="valor-pagar">{{ fatura.valor_total_display }}</span>
+          </p>
+          
+          <div class="section-divider">
+        </div>
+      </section>
+
+      {% if consumo_atual or energia_ativa or preco_unitario_display or bandeira %}
+      <section class="energy-details">
+        <h3 class="section-title">Detalhes do Consumo</h3>
+        {% if consumo_atual %}
+        <div class="energy-item">
+          <span>Consumo do Mês (kWh):</span>
+          <span><strong>{{ consumo_atual }}</strong></span>
+        </div>
+        {% endif %}
+        {% if energia_ativa_display %}
+        <div class="energy-item">
+          <span>Energia Atv. Injetada (kWh):</span>
+          <span>{{ energia_ativa_display }}</span>
+        </div>
+        {% endif %}
+        {% if preco_unitario_display %}
+        <div class="energy-item">
+          <span>Preço Unit. c/ Tributos (R$/kWh):</span>
+          <span>{{ preco_unitario_display }}</span>
+        </div>
+        {% endif %}
+      </section>
+      {% endif %}
+
+      {% if historico_consumo %}
+      <section class="consumption-history">
+        <h3 class="section-title">Histórico de Consumo Mensal</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Mês/Ano</th>
+              <th>Consumo (kWh)</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in historico_consumo reversed %}
+            <tr>
+              <td>{{ item.rotulo }}</td>
+              <td class="{% if not item.has_consumo %}zero-consumption{% endif %}">
+                {{ item.consumo_display }}
+              </td>
+              <td>
+                {% if item.has_consumo %}
+                <span class="consumption-badge">Registrado</span>
+                {% else %}
+                <span style="color: #999;">N/A</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% if historico_resumo %}
+        <div class="historico-resumo">
+          <strong>Resumo:</strong> {{ historico_resumo }}
+        </div>
+        {% endif %}
+      </section>
+      {% endif %}
+
+      <section class="barcode-area">
+        <img
+          src="{{ qrcode_path|default:default_qrcode }}"
+          alt="QR Code para pagamento"
+          class="qrcode-image"
+        />
+        <p class="qrcode-caption">
+          Chave pix: alpsistemascg@gmail.com
+        </p>
+        <div class="barcode-placeholder">
+          Código de Barras: {{ fatura.codigo_barras }}<br/>
+          <small>Utilize este código para pagamento em bancos ou aplicativos</small><br/><br/><br/>
+        </div>
+      </section>
+
+      <footer class="footer">
+        <div class="contact-info">
+          <p>
+            <strong>Canais de Atendimento:</strong> WhatsApp:(67) 99252-0749 |
+            E-mail: alpsistemascg@gmail.com
+          </p>
+          <p>
+            <strong>Horário de Atendimento:</strong> Segunda a Sexta, das 8h às
+            18h
+          </p>
+        </div>
+      </footer>
+    </div>
+  </body>
+</html>

@@ -1,5 +1,10 @@
+import io
 import logging
+import zipfile
 from datetime import timedelta
+from pathlib import Path
+from decimal import Decimal
+import os
 
 from django.conf import settings
 from django.contrib import messages
@@ -7,15 +12,18 @@ from django.contrib.auth import authenticate, get_user_model, login, logout, upd
 from django.contrib.auth.hashers import identify_hasher, make_password
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import IntegrityError
-from django.core.mail import EmailMessage, send_mail
-from django.http import JsonResponse
+from django.core.mail import EmailMessage
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
+from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.text import slugify
 from django.views import View
 from django.views.generic import TemplateView
 
 from app.core.models import Cliente
+from app.core.processamento import processar_pdf
 
 logger = logging.getLogger(__name__)
 
@@ -251,6 +259,12 @@ class ProcessamentoView(LoginRequiredMixin, TemplateView):
             return self._handle_update_profile(request, cliente)
         if action == 'update_prompt':
             return self._handle_update_prompt(request, cliente)
+        if action == 'process_files':
+            return self._handle_process_files(request, cliente)
+        if action == 'download_file':
+            return self._handle_download_file(request)
+        if action == 'download_all':
+            return self._handle_download_all(request)
 
         messages.error(request, 'Ação inválida.')
         return redirect('core:processamento')
@@ -309,12 +323,159 @@ class ProcessamentoView(LoginRequiredMixin, TemplateView):
         messages.success(request, 'Diretrizes para IA atualizadas com sucesso.')
         return redirect('core:processamento')
 
+    def _build_historico(self, historico_raw):
+        historico = []
+        for item in historico_raw or []:
+            consumo = (item or {}).get('consumo', '')
+            mes = (item or {}).get('mes', '')
+            historico.append(
+                {
+                    'rotulo': mes,
+                    'consumo_display': consumo or 'N/A',
+                    'has_consumo': bool(consumo),
+                }
+            )
+        return historico
+
+    def _build_invoice_context(self, data, cliente):
+        historico_consumo = self._build_historico(data.get('historico de consumo'))
+        return {
+            'logo_path': self.request.build_absolute_uri(settings.STATIC_URL + 'img/logomarca.png')
+            if settings.STATIC_URL
+            else '',
+            'qrcode_path': self.request.build_absolute_uri(settings.STATIC_URL + 'img/qrcode_bancobrasil.jpeg')
+            if settings.STATIC_URL
+            else '',
+            'mes_referencia': data.get('mes de referencia', ''),
+            'cliente': {
+                'nome': data.get('nome do cliente', '') or getattr(cliente, 'nome', ''),
+                'codigo_uc': data.get('codigo do cliente - uc', ''),
+            },
+            'fatura': {
+                'data_emissao': data.get('data de emissao', ''),
+                'data_vencimento': data.get('data de vencimento', ''),
+                'saldo_acumulado_display': data.get('saldo acumulado', ''),
+                'valor_total_display': data.get('valor a pagar', ''),
+                'codigo_barras': '',
+            },
+            'economia_display': data.get('Economia', ''),
+            'consumo_atual': data.get('consumo kwh', ''),
+            'energia_ativa_display': data.get('Energia Atv Injetada', ''),
+            'preco_unitario_display': data.get('preco unit com tributos', ''),
+            'historico_consumo': historico_consumo,
+            'historico_resumo': '',
+        }
+
+    def _handle_process_files(self, request, cliente):
+        files = request.FILES.getlist('invoice_files')
+        if not files:
+            messages.error(request, 'Envie pelo menos um PDF para processar.')
+            return redirect('core:processamento')
+
+        api_key = os.getenv('OPENAI_API_KEY', '').strip()
+        if not api_key:
+            messages.error(request, 'Defina a variável OPENAI_API_KEY para processar faturas.')
+            return redirect('core:processamento')
+
+        credit_available = Decimal(cliente.valor_credito or 0)
+        file_count = len(files)
+        if credit_available < file_count:
+            max_allowed = int(credit_available)
+            if max_allowed > 0:
+                messages.error(
+                    request,
+                    f'Crédito insuficiente para {file_count} faturas. '
+                    f'Você pode enviar no máximo {max_allowed} fatura(s) com o saldo atual.'
+                )
+            else:
+                messages.error(
+                    request,
+                    'Crédito insuficiente. Adquira créditos para processar novas faturas.'
+                )
+            return redirect('core:processamento')
+
+        outputs = []
+        for f in files:
+            try:
+                parsed = processar_pdf(f)
+                context = self._build_invoice_context(parsed, cliente)
+                html = render_to_string('core/modelo_fatura.html', context)
+                outputs.append((Path(f.name).stem or 'fatura', html))
+            except Exception as exc:
+                logger.exception('Erro ao processar fatura %s', f.name)
+                messages.error(request, f'Erro ao processar {f.name}: {exc}')
+
+        if not outputs:
+            return redirect('core:processamento')
+
+        processed = []
+        for name, html in outputs:
+            safe_name = slugify(name) or 'fatura'
+            processed.append({
+                'name': f'{safe_name}.html',
+                'content': html,
+                'status': 'processado',
+            })
+
+        # Debita os créditos apenas pelas faturas geradas
+        try:
+            debit = Decimal(len(processed))
+            cliente.valor_credito = (credit_available - debit)
+            cliente.save(update_fields=['valor_credito'])
+        except Exception:
+            logger.exception('Falha ao debitar créditos do cliente %s', cliente.id)
+
+        self._set_processed_files(request, processed)
+        messages.success(request, f'{len(processed)} fatura(s) pronta(s) para download.')
+        return redirect('core:processamento')
+
+    def _handle_download_file(self, request):
+        processed = self._get_processed_files(request)
+        try:
+            idx = int(request.POST.get('file_index', '0'))
+        except ValueError:
+            messages.error(request, 'Arquivo inválido.')
+            return redirect('core:processamento')
+
+        if idx < 0 or idx >= len(processed):
+            messages.error(request, 'Arquivo não encontrado na lista processada.')
+            return redirect('core:processamento')
+
+        item = processed[idx]
+        response = HttpResponse(item.get('content', ''), content_type='text/html')
+        response['Content-Disposition'] = f'attachment; filename="{item.get("name", "fatura.html")}"'
+        return response
+
+    def _handle_download_all(self, request):
+        processed = self._get_processed_files(request)
+        if not processed:
+            messages.error(request, 'Não há faturas processadas para baixar.')
+            return redirect('core:processamento')
+
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, 'w', compression=zipfile.ZIP_DEFLATED) as zf:
+            for item in processed:
+                zf.writestr(item.get('name', 'fatura.html'), item.get('content', ''))
+        buffer.seek(0)
+
+        response = HttpResponse(buffer.getvalue(), content_type='application/zip')
+        response['Content-Disposition'] = 'attachment; filename="faturas.zip"'
+        return response
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         cliente = getattr(self.request.user, 'cliente', None)
         context['cliente'] = cliente
         context['cliente_nome'] = self.request.session.get('cliente_nome', '') or getattr(self.request.user, 'first_name', '')
+        context['processed_files'] = self._get_processed_files(self.request)
         return context
+
+    def _get_processed_files(self, request):
+        return request.session.get('processed_files', [])
+
+    def _set_processed_files(self, request, files):
+        request.session['processed_files'] = files
+        request.session.modified = True
 
 
 class LogoutView(View):

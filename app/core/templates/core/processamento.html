@@ -74,10 +74,12 @@
                                 </div>
                             </div>
                             <p class="text-muted small mb-3">Selecione vários arquivos PDF para enviar em lote. Cada arquivo contará como uma fatura processada.</p>
-                            <form>
+                            <form method="post" action="{% url 'core:processamento' %}" enctype="multipart/form-data" id="invoiceForm">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="process_files">
                                 <div class="mb-3">
                                     <label class="form-label">Faturas em PDF</label>
-                                    <input type="file" class="d-none" id="invoiceFiles" accept="application/pdf" multiple>
+                                    <input type="file" class="d-none" id="invoiceFiles" accept="application/pdf" name="invoice_files" multiple>
                                     <label for="invoiceFiles" class="form-control d-flex align-items-center justify-content-between" role="button">
                                         <span class="text-danger"><b><u>Clique aqui</u></b> para adicionar PDF</span>
                                         <i class="fas fa-file-upload text-primary"></i>
@@ -87,11 +89,56 @@
                                         <li class="list-group-item small text-muted">Nenhum arquivo selecionado.</li>
                                     </ul>
                                 </div>
-                                <button type="button" class="btn btn-primary" id="processButton"><i class="fas fa-gear me-2"></i>Processar</button>
-                                <div class="text-muted small mt-2 d-none" id="processStatus">Botão em desenvolvimento.</div>
+                                <button type="submit" class="btn btn-primary" id="processButton"><i class="fas fa-gear me-2"></i>Processar</button>
+                                <div class="mt-2 d-none" id="processSpinner">
+                                    <div class="d-flex align-items-center gap-2 text-primary">
+                                        <div class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></div>
+                                        <span class="small">Processando faturas...</span>
+                                    </div>
+                                </div>
                             </form>
                         </div>
                     </div>
+
+                    {% if processed_files %}
+                    <div class="card shadow border-2 border-secondary-subtle rounded-4 mb-4">
+                        <div class="card-body p-4">
+                            <div class="d-flex align-items-center mb-3">
+                                <div class="me-3 text-success"><i class="fas fa-download fa-lg"></i></div>
+                                <div>
+                                    <p class="text-uppercase text-success fw-semibold mb-1 small">Faturas prontas</p>
+                                    <h2 class="h5 mb-0">Download das faturas geradas</h2>
+                                </div>
+                            </div>
+                            <ul class="list-group list-group-flush">
+                                {% for item in processed_files %}
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span class="h5 fw-semibold mb-0 text-success">{{ item.name }}</span>
+                                    <form method="post" action="{% url 'core:processamento' %}" class="m-0">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="action" value="download_file">
+                                        <input type="hidden" name="file_index" value="{{ forloop.counter0 }}">
+                                        <button class="btn btn-outline-success btn-sm" type="submit">
+                                            <i class="fas fa-file-arrow-down me-1"></i>Baixar
+                                        </button>
+                                    </form>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                            {% if processed_files|length > 1 %}
+                            <div class="d-flex justify-content-end mt-3">
+                                <form method="post" action="{% url 'core:processamento' %}" class="m-0">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="download_all">
+                                    <button class="btn btn-success btn-sm" type="submit">
+                                        <i class="fas fa-file-zipper me-2"></i>Baixar todas em ZIP
+                                    </button>
+                                </form>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
 
                     <div class="card shadow border-2 border-secondary-subtle rounded-4 mb-4">
                         <div class="card-body p-4">
@@ -203,7 +250,7 @@
                             <div class="collapse mt-2" id="creditInfo">
                                 <div class="card card-body border-0 bg-light">
                                     <ul class="mb-0 small text-muted ps-3">
-                                        <li>Processamento médio de R$ 1,50 por fatura.</li>
+                                        <li>Processamento médio de R$ 1,00 por fatura.</li>
                                         <li>Tempo aproximado: 1 minuto por fatura.</li>
                                         <li>Recomendamos enviar no máximo 10 faturas por vez.</li>
                                     </ul>
@@ -243,18 +290,26 @@
         (function() {
             const input = document.getElementById('invoiceFiles');
             const list = document.getElementById('fileList');
+            const form = document.getElementById('invoiceForm');
+            const processButton = document.getElementById('processButton');
+            const processSpinner = document.getElementById('processSpinner');
             if (!input || !list) return;
+
+            let isSubmitting = false;
 
             const renderList = (files) => {
                 if (!files.length) {
                     list.innerHTML = '<li class="list-group-item small text-muted">Nenhum arquivo selecionado.</li>';
                     return;
                 }
-                list.innerHTML = files.map(file => {
+                list.innerHTML = files.map((file, idx) => {
                     const sizeMb = (file.size / (1024 * 1024)).toFixed(2);
                     return `<li class="list-group-item d-flex justify-content-between align-items-center">
-                                <span class="small">${file.name}</span>
-                                <span class="badge bg-secondary">${sizeMb} MB</span>
+                                    <span class="file-name h5 fw-semibold text-secondary mb-0" data-file-name-for="${idx}">${file.name}</span>
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="badge bg-secondary" data-status-for="${idx}">Aguardando</span>
+                                    <span class="badge bg-light text-muted">${sizeMb} MB</span>
+                                </div>
                             </li>`;
                 }).join('');
             };
@@ -262,18 +317,44 @@
             input.addEventListener('change', () => {
                 renderList(Array.from(input.files || []));
             });
+
+            if (form) {
+                form.addEventListener('submit', (e) => {
+                    if (isSubmitting) return;
+                    const files = Array.from(input.files || []);
+                    if (!files.length) {
+                        e.preventDefault();
+                        list.innerHTML = '<li class="list-group-item small text-danger">Selecione ao menos um PDF.</li>';
+                        return;
+                    }
+                    isSubmitting = true;
+                    const badges = list.querySelectorAll('[data-status-for]');
+                    badges.forEach((badge) => {
+                        badge.classList.remove('bg-secondary', 'bg-success', 'bg-danger');
+                        badge.classList.add('bg-warning', 'text-dark');
+                        badge.textContent = 'Processando...';
+
+                        const idx = badge.getAttribute('data-status-for');
+                        const nameEl = list.querySelector(`[data-file-name-for="${idx}"]`);
+                        if (nameEl) {
+                            nameEl.classList.remove('text-secondary', 'text-success', 'text-danger');
+                            nameEl.classList.add('text-warning');
+                            nameEl.style.fontSize = '1rem';
+                        }
+                    });
+                    if (processButton) {
+                        processButton.disabled = true;
+                        processButton.classList.add('disabled');
+                    }
+                    if (processSpinner) {
+                        processSpinner.classList.remove('d-none');
+                    }
+                    // permite que a UI atualize antes de enviar
+                    setTimeout(() => form.submit(), 50);
+                    e.preventDefault();
+                });
+            }
         })();
-
-        (function() {
-            const processButton = document.getElementById('processButton');
-            const processStatus = document.getElementById('processStatus');
-            if (!processButton || !processStatus) return;
-
-            processButton.addEventListener('click', () => {
-                processStatus.classList.remove('d-none');
-            });
-        })();
-
         (function() {
             const phoneInput = document.getElementById('phoneInput');
             const passwordInput = document.getElementById('passwordInput');
