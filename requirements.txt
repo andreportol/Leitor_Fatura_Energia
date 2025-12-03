@@ -5,6 +5,7 @@ dotenv==0.9.9
 gunicorn==23.0.0
 packaging==25.0
 python-dotenv==1.2.1
+psycopg2-binary==2.9.10
 setuptools==80.9.0
 sqlparse==0.5.4
 typing_extensions==4.15.0
