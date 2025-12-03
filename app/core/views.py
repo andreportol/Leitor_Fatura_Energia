@@ -1,3 +1,4 @@
+import logging
 from datetime import timedelta
 
 from django.conf import settings
@@ -6,7 +7,7 @@ from django.contrib.auth import authenticate, get_user_model, login, logout, upd
 from django.contrib.auth.hashers import identify_hasher, make_password
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import IntegrityError
-from django.core.mail import send_mail
+from django.core.mail import EmailMessage, send_mail
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
@@ -15,6 +16,8 @@ from django.views import View
 from django.views.generic import TemplateView
 
 from app.core.models import Cliente
+
+logger = logging.getLogger(__name__)
 
 
 # Create your views here.
@@ -53,7 +56,8 @@ class ContactFormView(View):
                 status=400,
             )
 
-        recipient = getattr(settings, 'CONTACT_EMAIL', settings.EMAIL_HOST_USER)
+        # Destinatário fixo para leitura das mensagens
+        recipient = getattr(settings, 'CONTACT_EMAIL', None) or 'alpsistemascg@gmail.com'
         if not recipient:
             return JsonResponse(
                 {'success': False, 'error': 'Destinatário não configurado.'},
@@ -70,22 +74,20 @@ class ContactFormView(View):
         )
 
         try:
-            send_mail(
-                subject,
-                body,
-                settings.DEFAULT_FROM_EMAIL,
-                [recipient],
+            email_message = EmailMessage(
+                subject=subject,
+                body=body,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                to=[recipient],
                 reply_to=[email] if email else None,
             )
-        except Exception:
-            return JsonResponse(
-                {
-                    'success': False,
-                    'error': 'Não foi possível enviar o e-mail. '
-                             'Verifique as credenciais do remetente.',
-                },
-                status=500,
-            )
+            email_message.send(fail_silently=False)
+        except Exception as exc:
+            logger.exception('Falha ao enviar e-mail de contato')
+            error_msg = 'Não foi possível enviar o e-mail. Verifique as credenciais do remetente.'
+            if settings.DEBUG:
+                error_msg = f'{error_msg} Detalhe: {exc}'
+            return JsonResponse({'success': False, 'error': error_msg}, status=500)
 
         return JsonResponse({'success': True})
 
