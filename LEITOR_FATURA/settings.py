@@ -96,7 +96,7 @@ database_url = (
     or env('DATABASE_PUBLIC_URL')
     or env('POSTGRES_URL')
 )
-use_remote_default = bool(database_url) or not DEBUG
+use_remote_default = not DEBUG  # em debug (runserver local), fica no SQLite a menos que force
 USE_REMOTE_DB = env_bool('USE_REMOTE_DB', use_remote_default)
 
 if USE_REMOTE_DB:

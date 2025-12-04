@@ -10,7 +10,7 @@ import pdfplumber
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import PromptTemplate
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 from openai import APITimeoutError
 
 
@@ -30,10 +30,27 @@ def _as_int(value: str | None, default: int) -> int:
         return default
 
 
+def _cleanup_json_response(raw: str) -> str:
+    """Remove cercas de código e recorta o bloco JSON para evitar erros de parsing."""
+    text = (raw or "").strip()
+    if text.startswith("```"):
+        text = text.strip("`")
+        if text.lower().startswith("json"):
+            text = text[4:].strip()
+    start = text.find("{")
+    end = text.rfind("}")
+    if start != -1 and end != -1 and end > start:
+        text = text[start : end + 1]
+    return text
+
+
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
-OPENAI_TIMEOUT = _as_int(os.getenv("OPENAI_TIMEOUT"), 60)
+# Padrão temporário para modelo mais leve
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini").strip() or "gpt-4o-mini"
+OPENAI_TIMEOUT = _as_int(os.getenv("OPENAI_TIMEOUT"), 80)
 OPENAI_MAX_RETRIES = _as_int(os.getenv("OPENAI_MAX_RETRIES"), 1)
-OPENAI_MAX_TOKENS = _as_int(os.getenv("OPENAI_MAX_TOKENS"), 700)
+OPENAI_MAX_TOKENS = _as_int(os.getenv("OPENAI_MAX_TOKENS"), 900)
+PDF_TEXT_MAX_CHARS = _as_int(os.getenv("PDF_TEXT_MAX_CHARS"), 3000)
 
 if not OPENAI_API_KEY:
     raise ValueError(
@@ -41,12 +58,12 @@ if not OPENAI_API_KEY:
         "Crie um arquivo .env ou configure no ambiente do servidor."
     )
 
-model_kwargs = {}
+model_kwargs = {"response_format": {"type": "json_object"}}
 if OPENAI_MAX_TOKENS > 0:
     model_kwargs["max_completion_tokens"] = OPENAI_MAX_TOKENS
 
 llm = ChatOpenAI(
-    model="gpt-5",
+    model=OPENAI_MODEL,
     api_key=OPENAI_API_KEY,
     temperature=1,  # obrigatoriamente 1
     timeout=OPENAI_TIMEOUT,
@@ -61,6 +78,12 @@ llm = ChatOpenAI(
 class HistoricoItem(BaseModel):
     mes: str = Field(default="")
     consumo: str = Field(default="")
+
+    @field_validator("consumo", mode="before")
+    def _coerce_consumo(cls, v):
+        if v is None:
+            return ""
+        return str(v)
 
 
 class FaturaSchema(BaseModel):
@@ -166,16 +189,36 @@ def extrair_dados(texto_pdf: str) -> dict:
     except (APITimeoutError, httpx.TimeoutException) as exc:
         raise ValueError("Tempo limite ao chamar o modelo. Tente novamente em instantes.") from exc
     except Exception as exc:  # noqa: BLE001
-        raise ValueError(f"Falha ao chamar o modelo: {exc}") from exc
+        if "length limit" in str(exc).lower():
+            try:
+                fallback_kwargs = dict(model_kwargs)
+                if OPENAI_MAX_TOKENS > 0:
+                    extra = max(OPENAI_MAX_TOKENS + 300, int(OPENAI_MAX_TOKENS * 1.3))
+                    fallback_kwargs["max_completion_tokens"] = min(extra, 1500)
+                llm_fallback = ChatOpenAI(
+                    model=OPENAI_MODEL,
+                    api_key=OPENAI_API_KEY,
+                    temperature=1,
+                    timeout=OPENAI_TIMEOUT,
+                    max_retries=0,
+                    model_kwargs=fallback_kwargs,
+                )
+                resposta = llm_fallback.invoke(prompt)
+            except Exception as exc2:  # noqa: BLE001
+                raise ValueError(f"Falha ao chamar o modelo: {exc2}") from exc2
+        else:
+            raise ValueError(f"Falha ao chamar o modelo: {exc}") from exc
 
     conteudo = getattr(resposta, "content", "") if resposta is not None else ""
     if not conteudo or not str(conteudo).strip():
-        raise ValueError("Resposta vazia do modelo.")
+        meta = getattr(resposta, "response_metadata", None) if resposta else None
+        raise ValueError(f"Resposta vazia do modelo. Meta: {meta}")
 
+    parsed = _cleanup_json_response(str(conteudo))
     try:
-        dados_raw = json.loads(resposta.content)
+        dados_raw = json.loads(parsed)
     except json.JSONDecodeError as exc:
-        trecho = str(conteudo)[:500]
+        trecho = parsed[:500]
         raise ValueError(f"Resposta do LLM não é JSON válido: {exc.msg}. Conteúdo: {trecho}") from exc
 
     try:
@@ -195,6 +238,8 @@ def processar_pdf(caminho_pdf: Union[str, Path, IO[bytes]]) -> dict:
     # Log simples para acompanhar o conteúdo lido (trunca para evitar excesso)
     nome_arq = getattr(caminho_pdf, "name", str(caminho_pdf))
     print(f"[processar_pdf] Iniciando leitura de: {nome_arq}")
+    if len(texto) > PDF_TEXT_MAX_CHARS:
+        texto = texto[:PDF_TEXT_MAX_CHARS]
     trecho = texto[:1000].replace("\n", " ")  # evita quebra excessiva no log
     print(f"[processar_pdf] Trecho do texto extraído: {trecho}")
 
