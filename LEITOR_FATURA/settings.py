@@ -83,8 +83,6 @@ WSGI_APPLICATION = 'LEITOR_FATURA.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-USE_REMOTE_DB = env_bool('USE_REMOTE_DB', not DEBUG)
-
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
@@ -92,13 +90,16 @@ DATABASES = {
     }
 }
 
+database_url = (
+    env('DATABASE_URL')
+    or env('RAILWAY_DATABASE_URL')
+    or env('DATABASE_PUBLIC_URL')
+    or env('POSTGRES_URL')
+)
+use_remote_default = bool(database_url) or not DEBUG
+USE_REMOTE_DB = env_bool('USE_REMOTE_DB', use_remote_default)
+
 if USE_REMOTE_DB:
-    database_url = (
-        env('DATABASE_URL')
-        or env('RAILWAY_DATABASE_URL')
-        or env('DATABASE_PUBLIC_URL')
-        or env('POSTGRES_URL')
-    )
     if database_url:
         url = urlparse(database_url)
         if url.scheme.startswith('postgres'):
