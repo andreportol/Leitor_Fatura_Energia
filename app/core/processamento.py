@@ -168,10 +168,15 @@ def extrair_dados(texto_pdf: str) -> dict:
     except Exception as exc:  # noqa: BLE001
         raise ValueError(f"Falha ao chamar o modelo: {exc}") from exc
 
+    conteudo = getattr(resposta, "content", "") if resposta is not None else ""
+    if not conteudo or not str(conteudo).strip():
+        raise ValueError("Resposta vazia do modelo.")
+
     try:
         dados_raw = json.loads(resposta.content)
     except json.JSONDecodeError as exc:
-        raise ValueError(f"Resposta do LLM não é JSON válido: {exc.msg}") from exc
+        trecho = str(conteudo)[:500]
+        raise ValueError(f"Resposta do LLM não é JSON válido: {exc.msg}. Conteúdo: {trecho}") from exc
 
     try:
         resultado = FaturaSchema.model_validate(dados_raw)
