@@ -13,6 +13,7 @@ from django.contrib.auth.hashers import identify_hasher, make_password
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import IntegrityError
 from django.core.mail import EmailMessage
+from django.contrib.staticfiles.storage import staticfiles_storage
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 from django.template.loader import render_to_string
@@ -323,6 +324,14 @@ class ProcessamentoView(LoginRequiredMixin, TemplateView):
         messages.success(request, 'Diretrizes para IA atualizadas com sucesso.')
         return redirect('core:processamento')
 
+    def _absolute_static(self, path: str) -> str:
+        """Retorna URL absoluta para um arquivo estático, preferindo a versão com hash."""
+        try:
+            url = staticfiles_storage.url(path)
+        except Exception:
+            url = f"{settings.STATIC_URL}{path}" if settings.STATIC_URL else ''
+        return self.request.build_absolute_uri(url) if url else ''
+
     def _build_historico(self, historico_raw):
         historico = []
         for item in historico_raw or []:
@@ -340,12 +349,8 @@ class ProcessamentoView(LoginRequiredMixin, TemplateView):
     def _build_invoice_context(self, data, cliente):
         historico_consumo = self._build_historico(data.get('historico de consumo'))
         return {
-            'logo_path': self.request.build_absolute_uri(settings.STATIC_URL + 'img/logomarca.png')
-            if settings.STATIC_URL
-            else '',
-            'qrcode_path': self.request.build_absolute_uri(settings.STATIC_URL + 'img/qrcode_bancobrasil.jpeg')
-            if settings.STATIC_URL
-            else '',
+            'logo_path': self._absolute_static('img/logomarca.png'),
+            'qrcode_path': self._absolute_static('img/qrcode_bancobrasil.jpeg'),
             'mes_referencia': data.get('mes de referencia', ''),
             'cliente': {
                 'nome': data.get('nome do cliente', '') or getattr(cliente, 'nome', ''),

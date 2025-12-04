@@ -83,6 +83,8 @@ WSGI_APPLICATION = 'LEITOR_FATURA.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
+USE_REMOTE_DB = env_bool('USE_REMOTE_DB', not DEBUG)
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
@@ -90,46 +92,47 @@ DATABASES = {
     }
 }
 
-database_url = (
-    env('DATABASE_URL')
-    or env('RAILWAY_DATABASE_URL')
-    or env('DATABASE_PUBLIC_URL')
-    or env('POSTGRES_URL')
-)
-if database_url:
-    url = urlparse(database_url)
-    if url.scheme.startswith('postgres'):
-        query_options = parse_qs(url.query)
-        options = {}
-        if 'sslmode' in query_options:
-            options['sslmode'] = query_options['sslmode'][0]
+if USE_REMOTE_DB:
+    database_url = (
+        env('DATABASE_URL')
+        or env('RAILWAY_DATABASE_URL')
+        or env('DATABASE_PUBLIC_URL')
+        or env('POSTGRES_URL')
+    )
+    if database_url:
+        url = urlparse(database_url)
+        if url.scheme.startswith('postgres'):
+            query_options = parse_qs(url.query)
+            options = {}
+            if 'sslmode' in query_options:
+                options['sslmode'] = query_options['sslmode'][0]
 
-        DATABASES['default'] = {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': url.path.lstrip('/') or '',
-            'USER': url.username or '',
-            'PASSWORD': url.password or '',
-            'HOST': url.hostname or '',
-            'PORT': str(url.port or ''),
-        }
-        if options:
-            DATABASES['default']['OPTIONS'] = options
-else:
-    db_name = env('POSTGRES_DB') or env('PGDATABASE')
-    db_user = env('POSTGRES_USER') or env('PGUSER')
-    db_password = env('POSTGRES_PASSWORD') or env('PGPASSWORD')
-    db_host = env('POSTGRES_HOST') or env('PGHOST')
-    db_port = env('POSTGRES_PORT') or env('PGPORT')
+            DATABASES['default'] = {
+                'ENGINE': 'django.db.backends.postgresql',
+                'NAME': url.path.lstrip('/') or '',
+                'USER': url.username or '',
+                'PASSWORD': url.password or '',
+                'HOST': url.hostname or '',
+                'PORT': str(url.port or ''),
+            }
+            if options:
+                DATABASES['default']['OPTIONS'] = options
+    else:
+        db_name = env('POSTGRES_DB') or env('PGDATABASE')
+        db_user = env('POSTGRES_USER') or env('PGUSER')
+        db_password = env('POSTGRES_PASSWORD') or env('PGPASSWORD')
+        db_host = env('POSTGRES_HOST') or env('PGHOST')
+        db_port = env('POSTGRES_PORT') or env('PGPORT')
 
-    if db_name:
-        DATABASES['default'] = {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': db_name,
-            'USER': db_user or '',
-            'PASSWORD': db_password or '',
-            'HOST': db_host or 'localhost',
-            'PORT': db_port or '5432',
-        }
+        if db_name:
+            DATABASES['default'] = {
+                'ENGINE': 'django.db.backends.postgresql',
+                'NAME': db_name,
+                'USER': db_user or '',
+                'PASSWORD': db_password or '',
+                'HOST': db_host or 'localhost',
+                'PORT': db_port or '5432',
+            }
 
 
 # Password validation

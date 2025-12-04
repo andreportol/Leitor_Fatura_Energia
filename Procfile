@@ -1,1 +1,1 @@
-web: gunicorn LEITOR_FATURA.wsgi
+web: gunicorn --timeout 120 --log-file - LEITOR_FATURA.wsgi

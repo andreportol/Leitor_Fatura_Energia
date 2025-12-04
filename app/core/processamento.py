@@ -21,7 +21,16 @@ load_dotenv()  # Agora podemos usar OPENAI_API_KEY direto do ambiente
 # ========================================
 # CONFIGURAÇÃO DO MODELO LLM
 # ========================================
+def _as_int(value: str | None, default: int) -> int:
+    try:
+        return int(value) if value is not None else default
+    except (TypeError, ValueError):
+        return default
+
+
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
+OPENAI_TIMEOUT = _as_int(os.getenv("OPENAI_TIMEOUT"), 45)
+OPENAI_MAX_RETRIES = _as_int(os.getenv("OPENAI_MAX_RETRIES"), 1)
 
 if not OPENAI_API_KEY:
     raise ValueError(
@@ -32,7 +41,9 @@ if not OPENAI_API_KEY:
 llm = ChatOpenAI(
     model="gpt-5",
     api_key=OPENAI_API_KEY,
-    temperature=1  # obrigatoriamente 1
+    temperature=1,  # obrigatoriamente 1
+    timeout=OPENAI_TIMEOUT,
+    max_retries=OPENAI_MAX_RETRIES,
 )
 
 
