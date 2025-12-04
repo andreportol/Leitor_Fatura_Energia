@@ -5,11 +5,13 @@ import os
 from pathlib import Path
 from typing import IO, List, Union
 
+import httpx
 import pdfplumber
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import PromptTemplate
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from openai import APITimeoutError
 
 
 # ========================================
@@ -29,8 +31,9 @@ def _as_int(value: str | None, default: int) -> int:
 
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
-OPENAI_TIMEOUT = _as_int(os.getenv("OPENAI_TIMEOUT"), 120)
-OPENAI_MAX_RETRIES = _as_int(os.getenv("OPENAI_MAX_RETRIES"), 2)
+OPENAI_TIMEOUT = _as_int(os.getenv("OPENAI_TIMEOUT"), 60)
+OPENAI_MAX_RETRIES = _as_int(os.getenv("OPENAI_MAX_RETRIES"), 1)
+OPENAI_MAX_TOKENS = _as_int(os.getenv("OPENAI_MAX_TOKENS"), 700)
 
 if not OPENAI_API_KEY:
     raise ValueError(
@@ -44,6 +47,7 @@ llm = ChatOpenAI(
     temperature=1,  # obrigatoriamente 1
     timeout=OPENAI_TIMEOUT,
     max_retries=OPENAI_MAX_RETRIES,
+    max_tokens=OPENAI_MAX_TOKENS,
 )
 
 
@@ -153,7 +157,12 @@ def ler_pdf(caminho_pdf: Union[str, Path, IO[bytes]]) -> str:
 def extrair_dados(texto_pdf: str) -> dict:
     """Envia o texto do PDF ao LLM e retorna o JSON estruturado."""
     prompt = PROMPT_TEMPLATE.format(text_pdf=texto_pdf)
-    resposta = llm.invoke(prompt)
+    try:
+        resposta = llm.invoke(prompt)
+    except (APITimeoutError, httpx.TimeoutException) as exc:
+        raise ValueError("Tempo limite ao chamar o modelo. Tente novamente em instantes.") from exc
+    except Exception as exc:  # noqa: BLE001
+        raise ValueError(f"Falha ao chamar o modelo: {exc}") from exc
 
     try:
         dados_raw = json.loads(resposta.content)
