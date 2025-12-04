@@ -41,13 +41,17 @@ if not OPENAI_API_KEY:
         "Crie um arquivo .env ou configure no ambiente do servidor."
     )
 
+model_kwargs = {}
+if OPENAI_MAX_TOKENS > 0:
+    model_kwargs["max_completion_tokens"] = OPENAI_MAX_TOKENS
+
 llm = ChatOpenAI(
     model="gpt-5",
     api_key=OPENAI_API_KEY,
     temperature=1,  # obrigatoriamente 1
     timeout=OPENAI_TIMEOUT,
     max_retries=OPENAI_MAX_RETRIES,
-    max_tokens=OPENAI_MAX_TOKENS,
+    model_kwargs=model_kwargs,
 )
 
 
