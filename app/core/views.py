@@ -346,8 +346,22 @@ class ProcessamentoView(LoginRequiredMixin, TemplateView):
             )
         return historico
 
+    def _fallback_consumo_atual(self, data):
+        """Tenta obter consumo atual; se vazio, usa primeiro valor do histórico."""
+        consumo = data.get('consumo kwh', '')
+        if consumo:
+            return consumo
+        for item in data.get('historico de consumo') or []:
+            if not item:
+                continue
+            valor = item.get('consumo') or item.get('consumo kwh')
+            if valor:
+                return valor
+        return ''
+
     def _build_invoice_context(self, data, cliente):
         historico_consumo = self._build_historico(data.get('historico de consumo'))
+        consumo_atual = self._fallback_consumo_atual(data)
         return {
             'logo_path': self._absolute_static('img/logomarca.png'),
             'qrcode_path': self._absolute_static('img/qrcode_bancobrasil.jpeg'),
@@ -364,7 +378,7 @@ class ProcessamentoView(LoginRequiredMixin, TemplateView):
                 'codigo_barras': '',
             },
             'economia_display': data.get('Economia', ''),
-            'consumo_atual': data.get('consumo kwh', ''),
+            'consumo_atual': consumo_atual,
             'energia_ativa_display': data.get('Energia Atv Injetada', ''),
             'preco_unitario_display': data.get('preco unit com tributos', ''),
             'historico_consumo': historico_consumo,

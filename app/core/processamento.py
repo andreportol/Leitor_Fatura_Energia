@@ -127,7 +127,7 @@ Sua tarefa é identificar e retornar um JSON com os campos EXATOS abaixo:
 - "data de vencimento"
 - "codigo do cliente - uc"
 - "mes de referencia"
-- "consumo kwh"
+- "consumo em kwh"
 - "valor a pagar"
 - "Economia" 
 - "historico de consumo" (lista de objetos com "mes" e "consumo" em ordem cronológica se possível)
@@ -138,21 +138,21 @@ Sua tarefa é identificar e retornar um JSON com os campos EXATOS abaixo:
 
 Orientações específicas:
 - "nome do cliente": geralmente aparece após "PAGADOR" ou destacado próximo ao endereço do cliente.
-lista de UC = [("10/3580320-4", "MACEDO"), ("10/3591014-0", "RONNE"), ("10/3591011-6", "CALHEIROS"), ("10/3580317-0", "GONZAGA"), ("10/3590321-0", "RENATO"), ("10/3598135-6", "MARCOS"), ("10/3683686-4", "FRANK"), ("10/36833332-5", "MAX")]
 - "codigo do cliente - uc": normalize para o formato "10/########-#". Prefira valores já com "10/" na fatura (ex.: "10/33525227-0"). Se só houver versões fragmentadas (ex.: "3352527-2025-9-6"), reconstrua removendo sufixos extras e aplicando o prefixo "10/" com o dígito verificador mais plausível.
-- "consumo kwh": use apenas o valor do consumo atual do mês na tabela de itens da fatura, no campo Quant. ao lado de Unit. kWh (ou rótulos como \"Consumo do Mês (kWh)\" / \"Consumo em kWh\"). NÃO use números do histórico nem outras seções.
+- "consumo em kwh": Está em itens de fatura, próximo de KWH que está na coluna Unid.
 - "historico de consumo": extraia pares de mês e consumo da seção CONSUMO DOS ÚLTIMOS 13 meses ou da lista "Consumo FATURADO".
 Quando números e meses estiverem em colunas diferentes, faça a correspondência
 usando proximidade e ordem: valores mais recentes devem ser ligados aos meses mais recentes
 e meses sem valor claramente identificado devem receber "".
-- "preco unit com tributos": busque o valor decimal da coluna "Preço unit (R$) com tributos" como valor aproximado de 1,099590.
+- "preco unit com tributos": busque o valor decimal da coluna "Preço unit (R$) com tributos" com valor aproximado de 1,108630.
+*Atenção para os calculos de "valor a pagar" e "economia" abaixo*.
 - "Energia Atv Injetada": identifique todas as linhas de energia ativa injetada (Energia Atv Injetada), ela está em itens da fatura, e some as quantidades e divida pelo preco unit com tributos. Remova sinais negativos, normalize para o formato brasileiro e desconsidere valores que não estejam explicitamente ligados à energia injetada.
-- "valor a pagar": calcule como `valor_a_pagar = energia_injetada_total_kwh * preco_unit_com_tributos * 0.7`. Se qualquer um desses valores estiver ausente.
-- "Economia":  Calcule `Economia = Energia Atv Injetada em kWh * preco unit com tributos * 0.3`. Formate com vírgula e duas casas decimais; se não encontrar os componentes necessários, retorne "".
+- "valor a pagar": calcule como `valor a pagar = Valor (R$) * 0.7`. O Valor (R$) sempre será negativo na fatura.
+- "Economia":  Calcule `Economia = Valor (R$) * 0.3`.O Valor (R$) sempre será negativo na fatura. Formate com vírgula e duas casas decimais; se não encontrar os componentes necessários, retorne "".
 
 
 Regras importantes:
-0. Use pistas como "PAGADOR", "DATA DO DOCUMENTO", "VENCIMENTO", "NOTA FISCAL Nº", "MATRÍCULA", "Consumo em kWh", "VALOR DO DOCUMENTO" e "CONT.IL.PUB".
+0. Use pistas como "PAGADOR", "DATA DO DOCUMENTO", "VENCIMENTO", "NOTA FISCAL Nº", "MATRÍCULA", "Consumo em kWh", "VALOR DO DOCUMENTO" e "Energia Atv Injetada GDI".
 1. Analise cuidadosamente números que apareçam junto a descrições; selecione o valor mais plausível.
 2. Se houver múltiplos candidatos, escolha o que esteja mais próximo da descrição do campo.
 3. Converta valores numéricos para o padrão brasileiro com vírgula como separador decimal.
@@ -165,9 +165,9 @@ Regras importantes:
 9. Ignore sequências de "0,00" sem rótulo claro; trate-as como ruído.
 10. "codigo do cliente - uc" deve sempre começar com "10/" e ter apenas um hífen final para o dígito verificador (ex.: "10/33525227-0").
 11. Antes de realizar cálculos, converta os valores extraídos para números (substituindo vírgula por ponto), execute as operações e depois formate novamente com vírgula e duas casas decimais.
-12. Ao calcular "valor a pagar" e "Economia", mantenha o resultado com duas casas decimais e formato brasileiro.
-13. A Energia Atv Injetada estará com sinal negativo no PDF; Some todos e converta para positivo antes de usar nos cálculos.
-14. Fique atento ao número da UC, se for o número que está na lista substitua pelo nome apropriado.
+12. Ao calcular "valor a pagar" e "Economia", mantenha o resultado com duas casas decimais e formato brasileiro e positivos.
+13. Tanto Energia Atv Injetada  e Consumo em kWh estão em "Itens de Fatura" na coluna Quant. São valores positivos.
+14. Valor (R$) está em Itens de Fatura e é negativo.
 Texto a ser analisado:
 ----------------------
 {{ text_pdf }}
@@ -254,4 +254,12 @@ def processar_pdf(caminho_pdf: Union[str, Path, IO[bytes]]) -> dict:
 
     print(f"[PDF] Preview: {texto[:200]}...")
 
-    return extrair_dados(texto)
+    resultado = extrair_dados(texto)
+    try:
+        preview = json.dumps(resultado, ensure_ascii=False)
+        energia_injetada = resultado.get("Energia Atv Injetada", "")
+        print(f"[LLM resultado] Energia Atv Injetada: {energia_injetada} | {preview[:800]}")
+    except Exception:
+        print("[LLM resultado] (falha ao serializar resultado para log)")
+
+    return resultado
