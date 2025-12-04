@@ -14,100 +14,109 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_valida
 from openai import APITimeoutError
 
 
-# ========================================
-# CARREGA VARIÁVEIS DO .env
-# ========================================
-load_dotenv()  # Agora podemos usar OPENAI_API_KEY direto do ambiente
+# ============================================================
+# CARREGAR .ENV
+# ============================================================
+load_dotenv()
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
+if not OPENAI_API_KEY:
+    raise RuntimeError("OPENAI_API_KEY não definida no ambiente!")
+
+# MODELOS DEFINITIVOS
+# gpt-4.1 é mais capaz; gpt-4o fica como fallback mais rápido
+PRIMARY_MODEL = os.getenv("OPENAI_MODEL", "gpt-4.1").strip() or "gpt-4.1"
+FALLBACK_2 = "gpt-4o"
+
+OPENAI_TIMEOUT = int(os.getenv("OPENAI_TIMEOUT", "80"))
+OPENAI_RETRIES = int(os.getenv("OPENAI_MAX_RETRIES", "1"))
+PDF_MAX_CHARS = int(os.getenv("PDF_TEXT_MAX_CHARS", "6000"))
+# Limite moderado para reduzir cortes de resposta
+MAX_COMPLETION_TOKENS = int(os.getenv("OPENAI_MAX_TOKENS", "1100"))
 
 
-# ========================================
-# CONFIGURAÇÃO DO MODELO LLM
-# ========================================
-def _as_int(value: str | None, default: int) -> int:
-    try:
-        return int(value) if value is not None else default
-    except (TypeError, ValueError):
-        return default
+# ============================================================
+# FUNÇÕES UTILITÁRIAS
+# ============================================================
+def _cleanup_json(text: str) -> str:
+    """Extrai apenas o JSON válido do retorno do modelo."""
+    if not text:
+        return ""
 
+    text = text.strip()
 
-def _cleanup_json_response(raw: str) -> str:
-    """Remove cercas de código e recorta o bloco JSON para evitar erros de parsing."""
-    text = (raw or "").strip()
+    # remove ```json e cercas
     if text.startswith("```"):
         text = text.strip("`")
         if text.lower().startswith("json"):
             text = text[4:].strip()
-    start = text.find("{")
-    end = text.rfind("}")
-    if start != -1 and end != -1 and end > start:
-        text = text[start : end + 1]
+
+    # recorta apenas o bloco JSON
+    ini = text.find("{")
+    fim = text.rfind("}")
+    if ini != -1 and fim != -1 and fim > ini:
+        return text[ini:fim + 1]
+
     return text
 
 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
-# Padrão temporário para modelo mais leve
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini").strip() or "gpt-4o-mini"
-OPENAI_TIMEOUT = _as_int(os.getenv("OPENAI_TIMEOUT"), 80)
-OPENAI_MAX_RETRIES = _as_int(os.getenv("OPENAI_MAX_RETRIES"), 1)
-OPENAI_MAX_TOKENS = _as_int(os.getenv("OPENAI_MAX_TOKENS"), 900)
-PDF_TEXT_MAX_CHARS = _as_int(os.getenv("PDF_TEXT_MAX_CHARS"), 3000)
-
-if not OPENAI_API_KEY:
-    raise ValueError(
-        "A variável OPENAI_API_KEY não está definida. "
-        "Crie um arquivo .env ou configure no ambiente do servidor."
+def _model_builder(model: str):
+    """Cria uma instância configurada do LLM."""
+    return ChatOpenAI(
+        model=model,
+        api_key=OPENAI_API_KEY,
+        temperature=0.2,
+        timeout=OPENAI_TIMEOUT,
+        max_retries=OPENAI_RETRIES,
+        model_kwargs={
+            "response_format": {"type": "json_object"},
+            "max_completion_tokens": MAX_COMPLETION_TOKENS,
+        },
     )
 
-model_kwargs = {"response_format": {"type": "json_object"}}
-if OPENAI_MAX_TOKENS > 0:
-    model_kwargs["max_completion_tokens"] = OPENAI_MAX_TOKENS
 
-llm = ChatOpenAI(
-    model=OPENAI_MODEL,
-    api_key=OPENAI_API_KEY,
-    temperature=1,  # obrigatoriamente 1
-    timeout=OPENAI_TIMEOUT,
-    max_retries=OPENAI_MAX_RETRIES,
-    model_kwargs=model_kwargs,
-)
+def _safe_invoke(llm, prompt: str):
+    """Executa o modelo com segurança."""
+    try:
+        return llm.invoke(prompt)
+    except (APITimeoutError, httpx.TimeoutException):
+        raise TimeoutError("Timeout ao chamar OpenAI")
+    except Exception as e:
+        raise RuntimeError(f"Erro ao invocar modelo: {e}")
 
 
-# ========================================
-# SCHEMA DE VALIDAÇÃO
-# ========================================
+# ============================================================
+# SCHEMAS DE VALIDAÇÃO
+# ============================================================
 class HistoricoItem(BaseModel):
-    mes: str = Field(default="")
-    consumo: str = Field(default="")
+    mes: str = ""
+    consumo: str = ""
 
     @field_validator("consumo", mode="before")
-    def _coerce_consumo(cls, v):
-        if v is None:
-            return ""
-        return str(v)
+    def fix_consumo(cls, v):
+        return "" if v is None else str(v)
 
 
 class FaturaSchema(BaseModel):
+    """Define o JSON exato esperado pelo template."""
     model_config = ConfigDict(populate_by_name=True)
 
-    nome_do_cliente: str = Field(default="", alias="nome do cliente")
-    data_de_emissao: str = Field(default="", alias="data de emissao")
-    data_de_vencimento: str = Field(default="", alias="data de vencimento")
-    codigo_do_cliente_uc: str = Field(default="", alias="codigo do cliente - uc")
-    mes_de_referencia: str = Field(default="", alias="mes de referencia")
-    consumo_kwh: str = Field(default="", alias="consumo kwh")
-    valor_a_pagar: str = Field(default="", alias="valor a pagar")
-    economia: str = Field(default="", alias="Economia")
-    historico_de_consumo: List[HistoricoItem] = Field(
-        default_factory=list, alias="historico de consumo"
-    )
-    saldo_acumulado: str = Field(default="", alias="saldo acumulado")
-    preco_unit_com_tributos: str = Field(default="", alias="preco unit com tributos")
-    energia_atv_injetada: str = Field(default="", alias="Energia Atv Injetada")
+    nome_do_cliente: str = Field("", alias="nome do cliente")
+    data_de_emissao: str = Field("", alias="data de emissao")
+    data_de_vencimento: str = Field("", alias="data de vencimento")
+    codigo_do_cliente_uc: str = Field("", alias="codigo do cliente - uc")
+    mes_de_referencia: str = Field("", alias="mes de referencia")
+    consumo_kwh: str = Field("", alias="consumo kwh")
+    valor_a_pagar: str = Field("", alias="valor a pagar")
+    economia: str = Field("", alias="Economia")
+    historico_de_consumo: List[HistoricoItem] = Field(default_factory=list, alias="historico de consumo")
+    saldo_acumulado: str = Field("", alias="saldo acumulado")
+    preco_unit_com_tributos: str = Field("", alias="preco unit com tributos")
+    energia_atv_injetada: str = Field("", alias="Energia Atv Injetada")
 
 
-# ========================================
-# PROMPT TEMPLATE
-# ========================================
+# ============================================================
+# PROMPT TEMPLATE FINAL
+# ============================================================
 PROMPT_TEMPLATE = PromptTemplate.from_template(
     """Você é um assistente especializado em leitura de faturas de energia elétrica.
 Receberá abaixo o TEXTO EXTRAÍDO DE UM PDF (pode conter ruídos, quebras e colunas desordenadas).
@@ -131,7 +140,7 @@ Orientações específicas:
 - "nome do cliente": geralmente aparece após "PAGADOR" ou destacado próximo ao endereço do cliente.
 lista de UC = [("10/3580320-4", "MACEDO"), ("10/3591014-0", "RONNE"), ("10/3591011-6", "CALHEIROS"), ("10/3580317-0", "GONZAGA"), ("10/3590321-0", "RENATO"), ("10/3598135-6", "MARCOS"), ("10/3683686-4", "FRANK"), ("10/36833332-5", "MAX")]
 - "codigo do cliente - uc": normalize para o formato "10/########-#". Prefira valores já com "10/" na fatura (ex.: "10/33525227-0"). Se só houver versões fragmentadas (ex.: "3352527-2025-9-6"), reconstrua removendo sufixos extras e aplicando o prefixo "10/" com o dígito verificador mais plausível.
-- "consumo kwh" está no campo Quant. ao lado de Unit. kWh. Ele será encontrado em itens da fatura
+- "consumo kwh": use apenas o valor do consumo atual do mês na tabela de itens da fatura, no campo Quant. ao lado de Unit. kWh (ou rótulos como \"Consumo do Mês (kWh)\" / \"Consumo em kWh\"). NÃO use números do histórico nem outras seções.
 - "historico de consumo": extraia pares de mês e consumo da seção CONSUMO DOS ÚLTIMOS 13 meses ou da lista "Consumo FATURADO".
 Quando números e meses estiverem em colunas diferentes, faça a correspondência
 usando proximidade e ordem: valores mais recentes devem ser ligados aos meses mais recentes
@@ -166,101 +175,83 @@ Texto a ser analisado:
 """,
     template_format="jinja2",
 )
-def ler_pdf(caminho_pdf: Union[str, Path, IO[bytes]]) -> str:
-    """Extrai texto de um PDF usando pdfplumber."""
-    if hasattr(caminho_pdf, "seek"):
-        caminho_pdf.seek(0)
+
+
+# ============================================================
+# LEITURA DO PDF
+# ============================================================
+def ler_pdf(caminho: Union[str, Path, IO[bytes]]) -> str:
+    if hasattr(caminho, "seek"):
+        caminho.seek(0)
 
     partes = []
-    with pdfplumber.open(caminho_pdf) as pdf:
+    with pdfplumber.open(caminho) as pdf:
         for pagina in pdf.pages:
-            texto = (pagina.extract_text() or "").strip()
-            if texto:
-                partes.append(texto)
+            txt = pagina.extract_text()
+            if txt:
+                partes.append(txt.strip())
 
     return "\n\n".join(partes)
 
 
-def extrair_dados(texto_pdf: str) -> dict:
-    """Envia o texto do PDF ao LLM e retorna o JSON estruturado."""
-    prompt = PROMPT_TEMPLATE.format(text_pdf=texto_pdf)
-    try:
-        resposta = llm.invoke(prompt)
-    except (APITimeoutError, httpx.TimeoutException) as exc:
-        raise ValueError("Tempo limite ao chamar o modelo. Tente novamente em instantes.") from exc
-    except Exception as exc:  # noqa: BLE001
-        if "length limit" in str(exc).lower():
-            try:
-                fallback_kwargs = dict(model_kwargs)
-                if OPENAI_MAX_TOKENS > 0:
-                    extra = max(OPENAI_MAX_TOKENS + 300, int(OPENAI_MAX_TOKENS * 1.3))
-                    fallback_kwargs["max_completion_tokens"] = min(extra, 1500)
-                llm_fallback = ChatOpenAI(
-                    model=OPENAI_MODEL,
-                    api_key=OPENAI_API_KEY,
-                    temperature=1,
-                    timeout=OPENAI_TIMEOUT,
-                    max_retries=0,
-                    model_kwargs=fallback_kwargs,
-                )
-                resposta = llm_fallback.invoke(prompt)
-            except Exception as exc2:  # noqa: BLE001
-                raise ValueError(f"Falha ao chamar o modelo: {exc2}") from exc2
-        else:
-            raise ValueError(f"Falha ao chamar o modelo: {exc}") from exc
+# ============================================================
+# EXECUÇÃO COM FALLBACK INTELIGENTE
+# ============================================================
+def executar_prompt(prompt: str):
+    modelos = [PRIMARY_MODEL, FALLBACK_2]
 
-    conteudo = getattr(resposta, "content", "") if resposta is not None else ""
-    if not conteudo or not str(conteudo).strip():
-        meta = getattr(resposta, "response_metadata", None) if resposta else None
-        raise ValueError(f"Resposta vazia do modelo. Meta: {meta}")
+    for modelo in modelos:
+        try:
+            print(f"[LLM] Tentando modelo: {modelo}")
+            llm = _model_builder(modelo)
+            resposta = _safe_invoke(llm, prompt)
+            return resposta
+        except Exception as e:
+            print(f"[LLM] Erro no modelo {modelo}: {e}")
 
-    parsed = _cleanup_json_response(str(conteudo))
-    try:
-        dados_raw = json.loads(parsed)
-    except json.JSONDecodeError as exc:
-        trecho = parsed[:500]
-        raise ValueError(f"Resposta do LLM não é JSON válido: {exc.msg}. Conteúdo: {trecho}") from exc
+    raise RuntimeError("Nenhum modelo conseguiu responder.")
+
+
+# ============================================================
+# EXTRAÇÃO FINAL DO JSON
+# ============================================================
+def extrair_dados(texto: str) -> dict:
+    prompt = PROMPT_TEMPLATE.format(text_pdf=texto)
+
+    resposta = executar_prompt(prompt)
+
+    conteudo = getattr(resposta, "content", "")
+    json_txt = _cleanup_json(conteudo)
 
     try:
-        resultado = FaturaSchema.model_validate(dados_raw)
-    except ValidationError as exc:
-        raise ValueError(f"JSON recebido não corresponde ao schema esperado: {exc}") from exc
+        dados_raw = json.loads(json_txt)
+    except Exception:
+        raise ValueError(f"JSON inválido retornado pelo modelo:\n{json_txt[:300]}")
 
-    return resultado.model_dump(by_alias=True)
+    try:
+        obj = FaturaSchema.model_validate(dados_raw)
+    except ValidationError as e:
+        raise ValueError(f"JSON não corresponde ao schema esperado: {e}")
+
+    return obj.model_dump(by_alias=True)
 
 
+# ============================================================
+# PROCESSAMENTO PRINCIPAL DO PDF
+# ============================================================
 def processar_pdf(caminho_pdf: Union[str, Path, IO[bytes]]) -> dict:
-    """Extrai texto do PDF, envia ao modelo e retorna o dicionário interpretado."""
     texto = ler_pdf(caminho_pdf)
-    if not texto.strip():
-        raise ValueError("Nenhum texto foi extraído do PDF.")
 
-    # Log simples para acompanhar o conteúdo lido (trunca para evitar excesso)
-    nome_arq = getattr(caminho_pdf, "name", str(caminho_pdf))
-    print(f"[processar_pdf] Iniciando leitura de: {nome_arq}")
-    if len(texto) > PDF_TEXT_MAX_CHARS:
-        texto = texto[:PDF_TEXT_MAX_CHARS]
-    trecho = texto[:1000].replace("\n", " ")  # evita quebra excessiva no log
-    print(f"[processar_pdf] Trecho do texto extraído: {trecho}")
+    nome = getattr(caminho_pdf, "name", str(caminho_pdf))
+    print(f"[PDF] Processando: {nome}")
+
+    if not texto.strip():
+        raise ValueError("Nenhum texto extraído do PDF.")
+
+    # Railway-safe truncate
+    if len(texto) > PDF_MAX_CHARS:
+        texto = texto[:PDF_MAX_CHARS]
+
+    print(f"[PDF] Preview: {texto[:200]}...")
 
     return extrair_dados(texto)
-
-
-# ========================================
-# DEBUG LOCAL
-# ========================================
-if __name__ == "__main__":
-    pdf_path = Path(__file__).resolve().parent / "pdfs" / "exemplo.pdf"
-    if not pdf_path.exists():
-        raise FileNotFoundError(f"Arquivo não encontrado: {pdf_path}")
-
-    texto_extraido = ler_pdf(pdf_path)
-    print("=== TEXTO EXTRAÍDO DO PDF ===")
-    print(texto_extraido)
-
-    try:
-        dados = extrair_dados(texto_extraido)
-        print("\n=== JSON FINAL ===")
-        print(json.dumps(dados, indent=2, ensure_ascii=False))
-    except Exception as erro:
-        print("Erro:", erro)
