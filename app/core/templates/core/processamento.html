@@ -64,6 +64,60 @@
             {% endif %}
             <div class="row g-4">
                 <div class="col-lg-8">
+                    <div class="collapse mb-4" id="profileFormWrapper">
+                        <div class="card shadow border-2 border-secondary-subtle rounded-4 h-100">
+                            <div class="card-body p-4">
+                                <div class="d-flex align-items-center mb-4">
+                                    <div class="me-3 text-primary"><i class="fas fa-user-gear fa-2x"></i></div>
+                                    <div>
+                                        <p class="text-uppercase text-primary fw-semibold mb-1 small">Dados do Cliente</p>
+                                        <h1 class="h4 mb-0">Atualize suas informações</h1>
+                                    </div>
+                                </div>
+                                <form method="post" action="{% url 'core:processamento' %}" id="profileForm">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="update_profile">
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <label class="form-label">E-mail</label>
+                                            <input type="email" class="form-control" name="email" value="{{ cliente.email }}" required>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label">Telefone</label>
+                                            <input type="text" class="form-control" name="telefone" id="phoneInput" value="{{ cliente.telefone }}" placeholder="(67) 99999-9999">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label">Estado</label>
+                                            <input type="text" class="form-control" name="estado" value="{{ cliente.estado }}">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label">Cidade</label>
+                                            <input type="text" class="form-control" name="cidade" value="{{ cliente.cidade }}">
+                                        </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Nova senha (opcional)</label>
+                                        <input type="password" class="form-control" name="password" id="passwordInput" autocomplete="new-password" placeholder="••••••••">
+                                        <small class="text-muted">Se alterar a senha, confirme abaixo. Você usará a nova senha no próximo login.</small>
+                                    </div>
+                                    <div class="col-md-6 d-none" id="passwordConfirmGroup">
+                                        <label class="form-label">Confirmar nova senha</label>
+                                        <input type="password" class="form-control" name="password_confirm" id="passwordConfirmInput" autocomplete="new-password" placeholder="••••••••">
+                                        <div class="text-danger small mt-1 d-none" id="passwordError">As senhas devem ser iguais.</div>
+                                    </div>
+                                    </div>
+                                    <div class="d-flex justify-content-end gap-2 mt-4">
+                                        <button type="button" class="btn btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#profileFormWrapper">
+                                            Sair sem salvar
+                                        </button>
+                                        <button type="submit" class="btn btn-primary">
+                                            <i class="fas fa-save me-2"></i>Salvar dados
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="card shadow border-2 border-secondary-subtle rounded-4 mb-4">
                         <div class="card-body p-4">
                             <div class="d-flex align-items-center mb-3">
@@ -175,59 +229,6 @@
                         </div>
                     </div>
 
-                    <div class="collapse" id="profileFormWrapper">
-                        <div class="card shadow border-2 border-secondary-subtle rounded-4 h-100">
-                            <div class="card-body p-4">
-                                <div class="d-flex align-items-center mb-4">
-                                    <div class="me-3 text-primary"><i class="fas fa-user-gear fa-2x"></i></div>
-                                    <div>
-                                        <p class="text-uppercase text-primary fw-semibold mb-1 small">Dados do Cliente</p>
-                                        <h1 class="h4 mb-0">Atualize suas informações</h1>
-                                    </div>
-                                </div>
-                                <form method="post" action="{% url 'core:processamento' %}" id="profileForm">
-                                    {% csrf_token %}
-                                    <input type="hidden" name="action" value="update_profile">
-                                    <div class="row g-3">
-                                        <div class="col-md-6">
-                                            <label class="form-label">E-mail</label>
-                                            <input type="email" class="form-control" name="email" value="{{ cliente.email }}" required>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <label class="form-label">Telefone</label>
-                                            <input type="text" class="form-control" name="telefone" id="phoneInput" value="{{ cliente.telefone }}" placeholder="(67) 99999-9999">
-                                        </div>
-                                        <div class="col-md-6">
-                                            <label class="form-label">Estado</label>
-                                            <input type="text" class="form-control" name="estado" value="{{ cliente.estado }}">
-                                        </div>
-                                        <div class="col-md-6">
-                                            <label class="form-label">Cidade</label>
-                                            <input type="text" class="form-control" name="cidade" value="{{ cliente.cidade }}">
-                                        </div>
-                                    <div class="col-md-6">
-                                        <label class="form-label">Nova senha (opcional)</label>
-                                        <input type="password" class="form-control" name="password" id="passwordInput" autocomplete="new-password" placeholder="••••••••">
-                                        <small class="text-muted">Se alterar a senha, confirme abaixo. Você usará a nova senha no próximo login.</small>
-                                    </div>
-                                    <div class="col-md-6 d-none" id="passwordConfirmGroup">
-                                        <label class="form-label">Confirmar nova senha</label>
-                                        <input type="password" class="form-control" name="password_confirm" id="passwordConfirmInput" autocomplete="new-password" placeholder="••••••••">
-                                        <div class="text-danger small mt-1 d-none" id="passwordError">As senhas devem ser iguais.</div>
-                                    </div>
-                                    </div>
-                                    <div class="d-flex justify-content-end gap-2 mt-4">
-                                        <button type="button" class="btn btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#profileFormWrapper">
-                                            Sair sem salvar
-                                        </button>
-                                        <button type="submit" class="btn btn-primary">
-                                            <i class="fas fa-save me-2"></i>Salvar dados
-                                        </button>
-                                    </div>
-                                </form>
-                            </div>
-                        </div>
-                    </div>
                 </div>
 
                 <div class="col-lg-4">
@@ -407,6 +408,15 @@
                     }
                 });
             }
+        })();
+        (function() {
+            const collapseEl = document.getElementById('profileFormWrapper');
+            if (!collapseEl) return;
+            collapseEl.addEventListener('shown.bs.collapse', () => {
+                collapseEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                // Ajusta pela navbar fixa
+                setTimeout(() => window.scrollBy({ top: -90, behavior: 'smooth' }), 150);
+            });
         })();
     </script>
 </body>

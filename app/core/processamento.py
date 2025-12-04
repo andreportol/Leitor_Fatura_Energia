@@ -29,8 +29,8 @@ def _as_int(value: str | None, default: int) -> int:
 
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
-OPENAI_TIMEOUT = _as_int(os.getenv("OPENAI_TIMEOUT"), 45)
-OPENAI_MAX_RETRIES = _as_int(os.getenv("OPENAI_MAX_RETRIES"), 1)
+OPENAI_TIMEOUT = _as_int(os.getenv("OPENAI_TIMEOUT"), 120)
+OPENAI_MAX_RETRIES = _as_int(os.getenv("OPENAI_MAX_RETRIES"), 2)
 
 if not OPENAI_API_KEY:
     raise ValueError(
