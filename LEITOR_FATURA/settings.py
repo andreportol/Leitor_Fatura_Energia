@@ -183,6 +183,9 @@ STORAGES = {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
     },
 }
+if not DEBUG:
+    # Evita erro 500 caso o manifest dos estáticos não exista (deploys sem collectstatic).
+    WHITENOISE_MANIFEST_STRICT = False
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
