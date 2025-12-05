@@ -361,7 +361,33 @@
         color: rgba(255, 255, 255, 0.82);
       }
 
+      .print-btn {
+        position: fixed;
+        top: 18px;
+        right: 18px;
+        background: #111;
+        color: #fff;
+        border: none;
+        border-radius: 10px;
+        padding: 10px 14px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        cursor: pointer;
+        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        z-index: 10;
+      }
+
+      .print-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 14px 28px rgba(0, 0, 0, 0.22);
+      }
+
       @media print {
+        * {
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
         body {
           padding: 0;
           background: white;
@@ -369,6 +395,9 @@
         .container {
           box-shadow: none;
           border: 1px solid #111;
+        }
+        .print-btn {
+          display: none;
         }
       }
 
@@ -389,6 +418,7 @@
     </style>
   </head>
   <body>
+    <button class="print-btn" onclick="window.print()">Imprimir</button>
     {% static 'img/logomarca.png' as default_logo %}
     {% static 'img/qrcode_bancobrasil.jpeg' as default_qrcode %}
     <div class="container">
