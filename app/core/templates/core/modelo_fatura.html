@@ -79,6 +79,11 @@
         line-height: 1.5;
       }
 
+      .header-meta {
+        font-size: 0.9rem;
+        color: rgba(255, 255, 255, 0.86);
+      }
+
       .client-info {
         background: #fff9e6;
         padding: 28px 36px;
@@ -399,6 +404,13 @@
         <div class="invoice-title">
           <h1>Fatura de Energia</h1>
           <p><strong>Mês de Referência:</strong> {{ mes_referencia|default:"" }}</p>
+          <p class="header-meta">
+            <strong>Emissão:</strong> {{ fatura.data_emissao }} &nbsp;&nbsp;
+            <strong>Vencimento:</strong> <span class="highlight-danger">{{ fatura.data_vencimento }}</span>
+          </p>
+          <p class="header-meta">
+            <strong>Saldo Acumulado (kWh):</strong> {{ fatura.saldo_acumulado_display }}
+          </p>
         </div>
       </header>
 

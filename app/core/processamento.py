@@ -115,6 +115,66 @@ def extrair_historico_consumo(texto):
     matches = re.findall(r"([A-Z]{3}/\d{2})\s+(\d+,\d{2})", texto)
     return [{"mes": m[0], "consumo": m[1]} for m in matches]
 
+def extrair_saldo_acumulado(texto):
+    m = re.search(r"Saldo Acumulado[:\s]*([-]?\d[\d\.]*,\d{2})", texto, flags=re.IGNORECASE)
+    return m.group(1) if m else ""
+
+def extrair_mes_referencia(texto):
+    m = re.search(r"(?:M[ÊE]S DE REFER[ÊE]NCIA|M[ÊE]S REFER[ÊE]NCIA|REFERENTE\s+A)\s*[:\-]?\s*([A-Z]{3}/\d{2,4})", texto, flags=re.IGNORECASE)
+    if m:
+        return m.group(1)
+    # fallback: usa primeiro mês do histórico encontrado
+    hist = extrair_historico_consumo(texto)
+    return hist[0]["mes"] if hist else ""
+
+def extrair_mes_referencia(texto: str) -> str:
+    """
+    Extrai o mês de referência da fatura ENERGISA.
+    Exemplos:
+      'SETEMBRO / 2025'
+      'SET / 2025'
+      'Referente a: AGOSTO/2025'
+    """
+    # Padrões mais comuns
+    padroes = [
+        r"([A-ZÇÃÉÍÓÚ]+ ?/ ?\d{4})",        # EX.: SET / 2025
+        r"([A-ZÇÃÉÍÓÚ]+ ?/\d{4})",         # EX.: SET/2025
+        r"([A-ZÇÃÉÍÓÚ]+ ?- ?\d{4})",       # EX.: SET - 2025
+        r"Referente a[: ]+([A-ZÇÃÉÍÓÚ]+/?\d{4})",
+    ]
+
+    for padrao in padroes:
+        m = re.search(padrao, texto)
+        if m:
+            return m.group(1).strip()
+
+    return ""
+
+def extrair_saldo_acumulado(texto: str) -> str:
+    """
+    Extrai o saldo acumulado da fatura.
+    Pode aparecer como:
+      'Saldo Acumulado: R$ 117,34'
+      'Saldo acumulado anterior R$ 52,17'
+      'Saldo Acumulado (Crédito) -507,75'
+    """
+    m = re.search(
+        r"Saldo Acumulado(?: anterior)?[^0-9\-]*([\-]?\d{1,3}(?:\.\d{3})*,\d{2})",
+        texto,
+        flags=re.IGNORECASE
+    )
+    if m:
+        return m.group(1).strip()
+
+    # fallback
+    m2 = re.search(r"Saldo[^0-9\-]*([\-]?\d{1,3}(?:\.\d{3})*,\d{2})", texto, flags=re.IGNORECASE)
+    if m2:
+        return m2.group(1).strip()
+
+    return ""
+
+
+
 # ===================================================================
 # IA – Leitura inteligente da fatura
 # ===================================================================
@@ -155,7 +215,9 @@ TEMPLATE JSON:
  "energia_atv_injetada_valor": "",
  "historico_de_consumo": [],
  "economia": "",
- "valor_a_pagar": ""
+ "valor_a_pagar": "",
+ "mes_referencia": "",
+ "saldo_acumulado": "",
 }}
 
 DICAS (hints):
@@ -168,6 +230,8 @@ Regras importantes (siga com rigor):
 - 'preco_unitario': preço unitário em R$/kWh (formato brasileiro, ex: '1,108630').
 - 'energia_atv_injetada_valor': Sempre será um valor negativo na fatura. O valor total deverá ser a soma de todos os valores negativos que tem o texto `Energia Atv Injetada GDI`.
 - 'energia_atv_injetada_kwh':  É igual ao valor da `energia_atv_injetada_valor / preco_unitario`
+- 'mes_referencia': deve ser lido do texto. Priorizar padrões como “SET / 2025”, “AGOSTO/2025”, “Referente a: ...”.
+- 'saldo_acumulado': deve ser lido literalmente do texto, mantendo sinal.
 
 INSTRUÇÃO CRÍTICA SOBRE ENERGIA ATIVA INJETADA (json):
 - Leia a Energia Atv Injetada SOMENTE no bloco 'Itens da Fatura'.
@@ -237,7 +301,10 @@ def processar_pdf(pdf_path: Union[str, Path, IO[bytes]]) -> Dict[str, Any]:
     leitura_ant_hint, leitura_atual_hint = extrair_leituras(texto)
     consumo_hint = extrair_consumo_kwh(texto)
     preco_hint = extrair_preco_unitario(texto)
+    mes_referencia_hint = extrair_mes_referencia(texto)
+    saldo_acumulado_hint = extrair_saldo_acumulado(texto)
     historico_hint = extrair_historico_consumo(texto)
+
 
     hints = {
         "nome_do_cliente": nome_hint,
@@ -251,6 +318,8 @@ def processar_pdf(pdf_path: Union[str, Path, IO[bytes]]) -> Dict[str, Any]:
         "preco_unitario": preco_hint,
         "energia_atv_injetada_kwh": "",
         "energia_atv_injetada_valor": "",
+        "mes_referencia": mes_referencia_hint,
+        "saldo_acumulado": saldo_acumulado_hint,
         "historico_de_consumo": historico_hint,
     }
 
@@ -289,6 +358,8 @@ def processar_pdf(pdf_path: Union[str, Path, IO[bytes]]) -> Dict[str, Any]:
         "energia_atv_injetada_valor": ia.get("energia_atv_injetada_valor", ""),
         "economia": economia or ia.get("economia", ""),
         "valor_a_pagar": pagar or ia.get("valor_a_pagar", ""),
+        "mes_referencia": ia.get("mes_referencia", mes_referencia_hint),
+        "saldo_acumulado": ia.get("saldo_acumulado", saldo_acumulado_hint),
         "historico_de_consumo": ia.get("historico_de_consumo", historico_hint),        
     }
 
@@ -297,8 +368,6 @@ def processar_pdf(pdf_path: Union[str, Path, IO[bytes]]) -> Dict[str, Any]:
     print("=================================\n")
 
     return resultado
-
-
 
 
 
