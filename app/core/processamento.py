@@ -1,265 +1,306 @@
+# ===================================================================
+# processamento.py - VERSÃO FINAL (Regex + IA GPT-4.1)
+# com PRINTS de depuração para inspeção completa
+# ===================================================================
+
 from __future__ import annotations
 
-import json
 import os
+import json
+import re
 from pathlib import Path
-from typing import IO, List, Union
+from typing import Union, IO, Any, Dict, List
 
-import httpx
 import pdfplumber
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
-from langchain_core.prompts import PromptTemplate
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
-from openai import APITimeoutError
 
+# -------------------------------------------------------------------
+# CONFIGURAÇÃO
+# -------------------------------------------------------------------
 
-# ============================================================
-# CARREGAR .ENV
-# ============================================================
 load_dotenv()
+
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
-if not OPENAI_API_KEY:
-    raise RuntimeError("OPENAI_API_KEY não definida no ambiente!")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4.1").strip() or "gpt-4.1"
 
-# MODELOS DEFINITIVOS
-# gpt-4.1 é mais capaz; gpt-4o fica como fallback mais rápido
-PRIMARY_MODEL = os.getenv("OPENAI_MODEL", "gpt-4.1").strip() or "gpt-4.1"
-FALLBACK_2 = "gpt-4o"
+# ===================================================================
+# FUNÇÕES UTILITÁRIAS – CONVERSÃO BR ↔ float
+# ===================================================================
 
-OPENAI_TIMEOUT = int(os.getenv("OPENAI_TIMEOUT", "80"))
-OPENAI_RETRIES = int(os.getenv("OPENAI_MAX_RETRIES", "1"))
-PDF_MAX_CHARS = int(os.getenv("PDF_TEXT_MAX_CHARS", "6000"))
-# Limite moderado para reduzir cortes de resposta
-MAX_COMPLETION_TOKENS = int(os.getenv("OPENAI_MAX_TOKENS", "1100"))
-
-
-# ============================================================
-# FUNÇÕES UTILITÁRIAS
-# ============================================================
-def _cleanup_json(text: str) -> str:
-    """Extrai apenas o JSON válido do retorno do modelo."""
-    if not text:
-        return ""
-
-    text = text.strip()
-
-    # remove ```json e cercas
-    if text.startswith("```"):
-        text = text.strip("`")
-        if text.lower().startswith("json"):
-            text = text[4:].strip()
-
-    # recorta apenas o bloco JSON
-    ini = text.find("{")
-    fim = text.rfind("}")
-    if ini != -1 and fim != -1 and fim > ini:
-        return text[ini:fim + 1]
-
-    return text
-
-
-def _model_builder(model: str):
-    """Cria uma instância configurada do LLM."""
-    return ChatOpenAI(
-        model=model,
-        api_key=OPENAI_API_KEY,
-        temperature=0.2,
-        timeout=OPENAI_TIMEOUT,
-        max_retries=OPENAI_RETRIES,
-        model_kwargs={
-            "response_format": {"type": "json_object"},
-            "max_completion_tokens": MAX_COMPLETION_TOKENS,
-        },
-    )
-
-
-def _safe_invoke(llm, prompt: str):
-    """Executa o modelo com segurança."""
+def br_to_float(s: str) -> float:
+    if not s:
+        return 0.0
+    v = s.strip().replace(".", "").replace(",", ".")
     try:
-        return llm.invoke(prompt)
-    except (APITimeoutError, httpx.TimeoutException):
-        raise TimeoutError("Timeout ao chamar OpenAI")
-    except Exception as e:
-        raise RuntimeError(f"Erro ao invocar modelo: {e}")
+        return float(v)
+    except:
+        return 0.0
 
+def float_to_br(valor: float, casas: int = 2) -> str:
+    txt = f"{valor:.{casas}f}"
+    return txt.replace(".", ",")
 
-# ============================================================
-# SCHEMAS DE VALIDAÇÃO
-# ============================================================
-class HistoricoItem(BaseModel):
-    mes: str = ""
-    consumo: str = ""
+# ===================================================================
+# PDF → TEXTO LINEAR
+# ===================================================================
 
-    @field_validator("consumo", mode="before")
-    def fix_consumo(cls, v):
-        return "" if v is None else str(v)
-
-
-class FaturaSchema(BaseModel):
-    """Define o JSON exato esperado pelo template."""
-    model_config = ConfigDict(populate_by_name=True)
-
-    nome_do_cliente: str = Field("", alias="nome do cliente")
-    data_de_emissao: str = Field("", alias="data de emissao")
-    data_de_vencimento: str = Field("", alias="data de vencimento")
-    codigo_do_cliente_uc: str = Field("", alias="codigo do cliente - uc")
-    mes_de_referencia: str = Field("", alias="mes de referencia")
-    consumo_kwh: str = Field("", alias="consumo kwh")
-    valor_a_pagar: str = Field("", alias="valor a pagar")
-    economia: str = Field("", alias="Economia")
-    historico_de_consumo: List[HistoricoItem] = Field(default_factory=list, alias="historico de consumo")
-    saldo_acumulado: str = Field("", alias="saldo acumulado")
-    preco_unit_com_tributos: str = Field("", alias="preco unit com tributos")
-    energia_atv_injetada: str = Field("", alias="Energia Atv Injetada")
-
-
-# ============================================================
-# PROMPT TEMPLATE FINAL
-# ============================================================
-PROMPT_TEMPLATE = PromptTemplate.from_template(
-    """Você é um assistente especializado em leitura de faturas de energia elétrica.
-Receberá abaixo o TEXTO EXTRAÍDO DE UM PDF (pode conter ruídos, quebras e colunas desordenadas).
-Sua tarefa é identificar e retornar um JSON com os campos EXATOS abaixo:
-
-- "nome do cliente"
-- "data de emissao"
-- "data de vencimento"
-- "codigo do cliente - uc"
-- "mes de referencia"
-- "consumo em kwh"
-- "valor a pagar"
-- "Economia" 
-- "historico de consumo" (lista de objetos com "mes" e "consumo" em ordem cronológica se possível)
-- "saldo acumulado"
-- "preco unit com tributos"
-- "Energia Atv Injetada"
-
-
-Orientações específicas:
-- "nome do cliente": geralmente aparece após "PAGADOR" ou destacado próximo ao endereço do cliente.
-- "codigo do cliente - uc": normalize para o formato "10/########-#". Prefira valores já com "10/" na fatura (ex.: "10/33525227-0"). Se só houver versões fragmentadas (ex.: "3352527-2025-9-6"), reconstrua removendo sufixos extras e aplicando o prefixo "10/" com o dígito verificador mais plausível.
-- "consumo em kwh": Está em itens de fatura, próximo de KWH que está na coluna Unid.
-- "historico de consumo": extraia pares de mês e consumo da seção CONSUMO DOS ÚLTIMOS 13 meses ou da lista "Consumo FATURADO".
-Quando números e meses estiverem em colunas diferentes, faça a correspondência
-usando proximidade e ordem: valores mais recentes devem ser ligados aos meses mais recentes
-e meses sem valor claramente identificado devem receber "".
-- "preco unit com tributos": busque o valor decimal da coluna "Preço unit (R$) com tributos" com valor aproximado de 1,108630.
-*Atenção para os calculos de "valor a pagar" e "economia" abaixo*.
-- "Energia Atv Injetada": identifique todas as linhas de energia ativa injetada (Energia Atv Injetada), ela está em itens da fatura, e some as quantidades e divida pelo preco unit com tributos. Remova sinais negativos, normalize para o formato brasileiro e desconsidere valores que não estejam explicitamente ligados à energia injetada.
-- "valor a pagar": calcule como `valor a pagar = Valor (R$) * 0.7`. O Valor (R$) sempre será negativo na fatura.
-- "Economia":  Calcule `Economia = Valor (R$) * 0.3`.O Valor (R$) sempre será negativo na fatura. Formate com vírgula e duas casas decimais; se não encontrar os componentes necessários, retorne "".
-
-
-Regras importantes:
-0. Use pistas como "PAGADOR", "DATA DO DOCUMENTO", "VENCIMENTO", "NOTA FISCAL Nº", "MATRÍCULA", "Consumo em kWh", "VALOR DO DOCUMENTO" e "Energia Atv Injetada GDI".
-1. Analise cuidadosamente números que apareçam junto a descrições; selecione o valor mais plausível.
-2. Se houver múltiplos candidatos, escolha o que esteja mais próximo da descrição do campo.
-3. Converta valores numéricos para o padrão brasileiro com vírgula como separador decimal.
-4. Só utilize "" quando realmente não houver valor legível no texto.
-5. O histórico deve ser uma lista — mesmo vazia — nunca uma string.
-6. Responda **somente** com o JSON final, sem comentários ou textos adicionais.
-7. Quando números e meses estiverem em colunas separadas, faça a correspondência respeitando
-   a ordem cronológica (meses mais recentes com valores mais recentes).
-8. Não invente "0,00" para consumo ausente — se não houver valor explícito, use "".
-9. Ignore sequências de "0,00" sem rótulo claro; trate-as como ruído.
-10. "codigo do cliente - uc" deve sempre começar com "10/" e ter apenas um hífen final para o dígito verificador (ex.: "10/33525227-0").
-11. Antes de realizar cálculos, converta os valores extraídos para números (substituindo vírgula por ponto), execute as operações e depois formate novamente com vírgula e duas casas decimais.
-12. Ao calcular "valor a pagar" e "Economia", mantenha o resultado com duas casas decimais e formato brasileiro e positivos.
-13. Tanto Energia Atv Injetada  e Consumo em kWh estão em "Itens de Fatura" na coluna Quant. São valores positivos.
-14. Valor (R$) está em Itens de Fatura e é negativo.
-Texto a ser analisado:
-----------------------
-{{ text_pdf }}
-----------------------
-""",
-    template_format="jinja2",
-)
-
-
-# ============================================================
-# LEITURA DO PDF
-# ============================================================
-def ler_pdf(caminho: Union[str, Path, IO[bytes]]) -> str:
-    if hasattr(caminho, "seek"):
-        caminho.seek(0)
+def extrair_texto(pdf_path: Union[str, Path, IO[bytes]]) -> str:
+    if hasattr(pdf_path, "read"):
+        pdf_path.seek(0)
+        pdf_file = pdf_path
+    else:
+        pdf_file = Path(pdf_path)
 
     partes = []
-    with pdfplumber.open(caminho) as pdf:
+    with pdfplumber.open(pdf_file) as pdf:
         for pagina in pdf.pages:
-            txt = pagina.extract_text()
-            if txt:
-                partes.append(txt.strip())
+            words = pagina.extract_words()
+            if words:
+                linha = " ".join([w["text"] for w in words])
+                partes.append(linha)
 
-    return "\n\n".join(partes)
+    return "\n".join(partes)
 
+# ===================================================================
+# REGEX – EXTRAÇÕES HEURÍSTICAS (HINTS)
+# ===================================================================
 
-# ============================================================
-# EXECUÇÃO COM FALLBACK INTELIGENTE
-# ============================================================
-def executar_prompt(prompt: str):
-    modelos = [PRIMARY_MODEL, FALLBACK_2]
+def extrair_nome(texto: str) -> str:
+    padrao = r"([A-ZÁÉÍÓÚÃÕÇ]{3,}(?: [A-ZÁÉÍÓÚÃÕÇ]{2,}){1,})\s+\d{2}/\d{2}/\d{4}"
+    m = re.search(padrao, texto)
+    if not m:
+        return ""
+    nome = m.group(1).strip()
+    if "DOCUMENTO" in nome or "NOTA FISCAL" in nome:
+        return ""
+    return nome
 
-    for modelo in modelos:
-        try:
-            print(f"[LLM] Tentando modelo: {modelo}")
-            llm = _model_builder(modelo)
-            resposta = _safe_invoke(llm, prompt)
-            return resposta
-        except Exception as e:
-            print(f"[LLM] Erro no modelo {modelo}: {e}")
+def extrair_endereco(texto: str) -> str:
+    m = re.search(r"(RUA [A-Z0-9ÁÉÍÓÚÃÕÇ\s\.]+,\s*\d+\s*-\s*\d{8})",
+                  texto, flags=re.IGNORECASE)
+    return m.group(1).strip() if m else ""
 
-    raise RuntimeError("Nenhum modelo conseguiu responder.")
+def extrair_uc(texto: str) -> str:
+    achou = re.findall(r"10/\d{7,8}-\d", texto)
+    return achou[0] if achou else ""
 
+def extrair_data_emissao(texto):
+    m = re.search(r"DATA DE EMISSÃO:?(\d{2}/\d{2}/\d{4})", texto)
+    return m.group(1) if m else ""
 
-# ============================================================
-# EXTRAÇÃO FINAL DO JSON
-# ============================================================
-def extrair_dados(texto: str) -> dict:
-    prompt = PROMPT_TEMPLATE.format(text_pdf=texto)
+def extrair_data_vencimento(texto):
+    m = re.search(r"[A-Za-zÁÉÍÓÚÃÕÇ]+ ?/\d{4}\s+(\d{2}/\d{2}/\d{4})", texto)
+    return m.group(1) if m else ""
 
-    resposta = executar_prompt(prompt)
+def extrair_leituras(texto):
+    m = re.search(r"Leitura Anterior:(\d{2}/\d{2}/\d{4}).*?"
+                  r"Leitura Atual:(\d{2}/\d{2}/\d{4})",
+                  texto, flags=re.DOTALL)
+    return (m.group(1), m.group(2)) if m else ("", "")
 
-    conteudo = getattr(resposta, "content", "")
-    json_txt = _cleanup_json(conteudo)
+def extrair_consumo_kwh(texto):
+    for m in re.finditer(r"KWH\s*([\d\.]+,\d{2})", texto):
+        inicio = max(0, m.start() - 80)
+        contexto = texto[inicio:m.start()]
+        if "Energia Atv Injetada" not in contexto:
+            return m.group(1)
+    return ""
 
-    try:
-        dados_raw = json.loads(json_txt)
-    except Exception:
-        raise ValueError(f"JSON inválido retornado pelo modelo:\n{json_txt[:300]}")
+def extrair_preco_unitario(texto):
+    m = re.search(r"Consumo em kWh.*?(\d,\d{5,})", texto, flags=re.DOTALL)
+    return m.group(1) if m else ""
 
-    try:
-        obj = FaturaSchema.model_validate(dados_raw)
-    except ValidationError as e:
-        raise ValueError(f"JSON não corresponde ao schema esperado: {e}")
+def extrair_historico_consumo(texto):
+    matches = re.findall(r"([A-Z]{3}/\d{2})\s+(\d+,\d{2})", texto)
+    return [{"mes": m[0], "consumo": m[1]} for m in matches]
 
-    return obj.model_dump(by_alias=True)
+# ===================================================================
+# IA – Leitura inteligente da fatura
+# ===================================================================
 
+def call_llm_fatura(texto_pdf: str, hints: Dict[str, Any]) -> Dict[str, Any]:
+    if not OPENAI_API_KEY:
+        raise RuntimeError("OPENAI_API_KEY não configurada.")
 
-# ============================================================
-# PROCESSAMENTO PRINCIPAL DO PDF
-# ============================================================
-def processar_pdf(caminho_pdf: Union[str, Path, IO[bytes]]) -> dict:
-    texto = ler_pdf(caminho_pdf)
+    llm = ChatOpenAI(
+        model=OPENAI_MODEL,
+        api_key=OPENAI_API_KEY,
+        temperature=0,
+        timeout=80,
+        max_retries=2,
+        model_kwargs={"response_format": {"type": "json_object"}},
+    )
 
-    nome = getattr(caminho_pdf, "name", str(caminho_pdf))
-    print(f"[PDF] Processando: {nome}")
+    prompt = f"""
+Você é especialista em leitura de faturas ENERGISA.
 
-    if not texto.strip():
-        raise ValueError("Nenhum texto extraído do PDF.")
+INSTRUÇÃO CRÍTICA – ENERGIA ATIVA INJETADA:
+- Leia SOMENTE dentro de “Itens da Fatura”.
+- Valor (R$) é sempre NEGATIVO no PDF → retornar POSITIVO no JSON.
+- energia_atv_injetada_KWH = energia_atv_injetada_valor / preco_unitario.
 
-    # Railway-safe truncate
-    if len(texto) > PDF_MAX_CHARS:
-        texto = texto[:PDF_MAX_CHARS]
+TEMPLATE JSON:
+{{
+ "nome_do_cliente": "",
+ "endereco": "",
+ "codigo_do_cliente_uc": "",
+ "data_de_emissao": "",
+ "data_de_vencimento": "",
+ "leitura_anterior": "",
+ "leitura_atual": "",
+ "consumo_kwh": "",
+ "preco_unitario": "",
+ "energia_atv_injetada_kwh": "",
+ "energia_atv_injetada_valor": "",
+ "historico_de_consumo": [],
+ "economia": "",
+ "valor_a_pagar": ""
+}}
 
-    print(f"[PDF] Preview: {texto[:200]}...")
+DICAS (hints):
 
-    resultado = extrair_dados(texto)
-    try:
-        preview = json.dumps(resultado, ensure_ascii=False)
-        energia_injetada = resultado.get("Energia Atv Injetada", "")
-        print(f"[LLM resultado] Energia Atv Injetada: {energia_injetada} | {preview[:800]}")
-    except Exception:
-        print("[LLM resultado] (falha ao serializar resultado para log)")
+Regras importantes (siga com rigor):
+- Use apenas informações presentes no texto ou deduções matemáticas diretas.
+- 'codigo_do_cliente_uc' deve ser a UC/Unidade Consumidora (ex: '10/########-#').
+- Datas no formato DD/MM/AAAA.
+- 'consumo_kwh': consumo principal faturado de energia ativa.
+- 'preco_unitario': preço unitário em R$/kWh (formato brasileiro, ex: '1,108630').
+- 'energia_atv_injetada_valor': Sempre será um valor negativo na fatura. O valor total deverá ser a soma de todos os valores negativos que tem o texto `Energia Atv Injetada GDI`.
+- 'energia_atv_injetada_kwh':  É igual ao valor da `energia_atv_injetada_valor / preco_unitario`
+
+INSTRUÇÃO CRÍTICA SOBRE ENERGIA ATIVA INJETADA (json):
+- Leia a Energia Atv Injetada SOMENTE no bloco 'Itens da Fatura'.
+- O valor correto de kWh é APENAS o número POSITIVO que vem imediatamente após 'KWH'.
+- O valor monetário associado é o número NEGATIVO na mesma linha (ex.: '-507,75'), mas deve ser retornado POSITIVO no JSON.
+- Se houver mais de um trecho de Energia Atv Injetada, some todos os kWh.
+
+- 'energia_atv_injetada_valor': valor total R$ associado à energia injetada (positivo no JSON).
+- 'historico_de_consumo': liste os meses e consumos em kWh do histórico (ex.: 'SET/25', 'AGO/25', etc).
+- 'economia' e 'valor_a_pagar' podem ser calculados assim:
+    base = energia_atv_injetada_kwh * preco_unitario
+    economia = base * 0.3
+    valor_a_pagar = base * 0.7
+  Retorne-os em formato '999,99'.
+
+Você também receberá um JSON com DICAS (hints) extraídas via regex.
+Use essas dicas para confirmar ou corrigir o que você encontrar no texto.
+{json.dumps(hints, ensure_ascii=False)}
+
+TEXTO:
+\"\"\"{texto_pdf}\"\"\"
+
+Responda APENAS com JSON.
+"""
+
+    print("\n\n===== PROMPT ENVIADO À IA =====")
+    print(prompt[:2000], "...\n")
+
+    resposta = llm.invoke(prompt)
+    conteudo = resposta.content
+
+    print("\n===== RESPOSTA RAW DA IA =====")
+    print(conteudo, "\n")
+
+    return json.loads(conteudo)
+
+# ===================================================================
+# CÁLCULO DE ECONOMIA
+# ===================================================================
+
+def calcular_economia_valor(kwh: str, preco: str):
+    k = br_to_float(kwh)
+    p = br_to_float(preco)
+    if k <= 0 or p <= 0:
+        return "", ""
+    base = k * p
+    return float_to_br(base * 0.3), float_to_br(base * 0.7)
+
+# ===================================================================
+# PROCESSAMENTO PRINCIPAL
+# ===================================================================
+
+def processar_pdf(pdf_path: Union[str, Path, IO[bytes]]) -> Dict[str, Any]:
+
+    print("\n=========== PROCESSANDO PDF ===========")
+
+    texto = extrair_texto(pdf_path)
+    print("\n======= TEXTO EXTRAÍDO (preview) =======")
+    print(texto[:1500], "...\n")
+
+    # Hints via regex
+    nome_hint = extrair_nome(texto)
+    endereco_hint = extrair_endereco(texto)
+    uc_hint = extrair_uc(texto)
+    emissao_hint = extrair_data_emissao(texto)
+    vencimento_hint = extrair_data_vencimento(texto)
+    leitura_ant_hint, leitura_atual_hint = extrair_leituras(texto)
+    consumo_hint = extrair_consumo_kwh(texto)
+    preco_hint = extrair_preco_unitario(texto)
+    historico_hint = extrair_historico_consumo(texto)
+
+    hints = {
+        "nome_do_cliente": nome_hint,
+        "endereco": endereco_hint,
+        "codigo_do_cliente_uc": uc_hint,
+        "data_de_emissao": emissao_hint,
+        "data_de_vencimento": vencimento_hint,
+        "leitura_anterior": leitura_ant_hint,
+        "leitura_atual": leitura_atual_hint,
+        "consumo_kwh": consumo_hint,
+        "preco_unitario": preco_hint,
+        "energia_atv_injetada_kwh": "",
+        "energia_atv_injetada_valor": "",
+        "historico_de_consumo": historico_hint,
+    }
+
+    print("===== HINTS (REGEX) =====")
+    print(json.dumps(hints, indent=2, ensure_ascii=False), "\n")
+
+    # Chamada da IA
+    ia = call_llm_fatura(texto, hints)
+
+    print("\n===== JSON BRUTO RECEBIDO DA IA =====")
+    print(json.dumps(ia, indent=2, ensure_ascii=False), "\n")
+
+    # Normalização energia injetada
+    energia_raw = ia.get("energia_atv_injetada_kwh", "")
+    if isinstance(energia_raw, (float, int)):
+        energia_final = float_to_br(energia_raw)
+    else:
+        energia_final = str(energia_raw)
+
+    economia, pagar = calcular_economia_valor(
+        energia_final,
+        ia.get("preco_unitario", "")
+    )
+
+    resultado = {
+        "nome_do_cliente": ia.get("nome_do_cliente", nome_hint),
+        "endereco": ia.get("endereco", endereco_hint),
+        "codigo_do_cliente_uc": ia.get("codigo_do_cliente_uc", uc_hint),
+        "data_de_emissao": ia.get("data_de_emissao", emissao_hint),
+        "data_de_vencimento": ia.get("data_de_vencimento", vencimento_hint),
+        "leitura_anterior": ia.get("leitura_anterior", leitura_ant_hint),
+        "leitura_atual": ia.get("leitura_atual", leitura_atual_hint),
+        "consumo_kwh": ia.get("consumo_kwh", consumo_hint),
+        "preco_unitario": ia.get("preco_unitario", preco_hint),
+        "energia_atv_injetada_kwh": energia_final,
+        "energia_atv_injetada_valor": ia.get("energia_atv_injetada_valor", ""),
+        "historico_de_consumo": ia.get("historico_de_consumo", historico_hint),
+        "economia": economia or ia.get("economia", ""),
+        "valor_a_pagar": pagar or ia.get("valor_a_pagar", "")
+    }
+
+    print("\n====== RESULTADO FINAL CONSOLIDADO ======")
+    print(json.dumps(resultado, indent=2, ensure_ascii=False))
+    print("=================================\n")
 
     return resultado
+
+
+
+
+
+
+

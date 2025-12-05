@@ -17,7 +17,10 @@ def env(name, default=None):
 
 
 def env_bool(name, default=False):
-    return str(env(name, default)).lower() == 'true'
+    value = env(name, default)
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in {'1', 'true', 't', 'yes', 'y', 'on'}
 
 
 def env_list(name, default=''):
@@ -30,7 +33,13 @@ SECRET_KEY = env('SECRET_KEY', 'django-insecure-h_*m42&o=gyt_t(wujyv5gm=howo)lyy
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env_bool('DEBUG', True)
 
-ALLOWED_HOSTS = env_list('ALLOWED_HOSTS', '*')
+ALLOWED_HOSTS = env_list('ALLOWED_HOSTS')
+if not ALLOWED_HOSTS:
+    # Em produção, permita domínios do Railway; em desenvolvimento mantenha * para evitar erro por host.
+    ALLOWED_HOSTS = ['alpsistemas.up.railway.app', 'localhost', '127.0.0.1']
+    if DEBUG:
+        ALLOWED_HOSTS.append('*')
+
 CSRF_TRUSTED_ORIGINS = env_list('CSRF_TRUSTED_ORIGINS', 'https://alpsistemas.up.railway.app')
 
 
