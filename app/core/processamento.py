@@ -287,9 +287,9 @@ def processar_pdf(pdf_path: Union[str, Path, IO[bytes]]) -> Dict[str, Any]:
         "preco_unitario": ia.get("preco_unitario", preco_hint),
         "energia_atv_injetada_kwh": energia_final,
         "energia_atv_injetada_valor": ia.get("energia_atv_injetada_valor", ""),
-        "historico_de_consumo": ia.get("historico_de_consumo", historico_hint),
         "economia": economia or ia.get("economia", ""),
-        "valor_a_pagar": pagar or ia.get("valor_a_pagar", "")
+        "valor_a_pagar": pagar or ia.get("valor_a_pagar", ""),
+        "historico_de_consumo": ia.get("historico_de_consumo", historico_hint),        
     }
 
     print("\n====== RESULTADO FINAL CONSOLIDADO ======")

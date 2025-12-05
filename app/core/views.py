@@ -348,10 +348,10 @@ class ProcessamentoView(LoginRequiredMixin, TemplateView):
 
     def _fallback_consumo_atual(self, data):
         """Tenta obter consumo atual; se vazio, usa primeiro valor do histórico."""
-        consumo = data.get('consumo kwh', '')
+        consumo = data.get('consumo_kwh') or data.get('consumo kwh', '')
         if consumo:
             return consumo
-        for item in data.get('historico de consumo') or []:
+        for item in data.get('historico_de_consumo') or data.get('historico de consumo') or []:
             if not item:
                 continue
             valor = item.get('consumo') or item.get('consumo kwh')
@@ -360,27 +360,44 @@ class ProcessamentoView(LoginRequiredMixin, TemplateView):
         return ''
 
     def _build_invoice_context(self, data, cliente):
-        historico_consumo = self._build_historico(data.get('historico de consumo'))
+        historico_raw = data.get('historico_de_consumo') or data.get('historico de consumo')
+        historico_consumo = self._build_historico(historico_raw)
         consumo_atual = self._fallback_consumo_atual(data)
+        nome_cliente = data.get('nome_do_cliente') or data.get('nome do cliente', '')
+        codigo_uc = data.get('codigo_do_cliente_uc') or data.get('codigo do cliente - uc', '')
+        endereco = data.get('endereco', '')
+        data_emissao = data.get('data_de_emissao') or data.get('data de emissao', '')
+        data_vencimento = data.get('data_de_vencimento') or data.get('data de vencimento', '')
+        valor_a_pagar = data.get('valor_a_pagar') or data.get('valor a pagar', '')
+        economia = data.get('economia') or data.get('Economia', '')
+        energia_injetada = data.get('energia_atv_injetada_kwh') or data.get('Energia Atv Injetada', '')
+        preco_unitario = data.get('preco_unitario') or data.get('preco unit com tributos', '')
+        saldo_acumulado = data.get('saldo_acumulado') or data.get('saldo acumulado', '')
+        mes_referencia = data.get('mes_referencia') or data.get('mes de referencia', '')
+        leitura_anterior = data.get('leitura_anterior') or data.get('leitura anterior', '')
+        leitura_atual = data.get('leitura_atual') or data.get('leitura atual', '')
         return {
             'logo_path': self._absolute_static('img/logomarca.png'),
             'qrcode_path': self._absolute_static('img/qrcode_bancobrasil.jpeg'),
-            'mes_referencia': data.get('mes de referencia', ''),
+            'mes_referencia': mes_referencia,
             'cliente': {
-                'nome': data.get('nome do cliente', '') or getattr(cliente, 'nome', ''),
-                'codigo_uc': data.get('codigo do cliente - uc', ''),
+                'nome': nome_cliente or getattr(cliente, 'nome', ''),
+                'codigo_uc': codigo_uc,
+                'endereco': endereco,
             },
             'fatura': {
-                'data_emissao': data.get('data de emissao', ''),
-                'data_vencimento': data.get('data de vencimento', ''),
-                'saldo_acumulado_display': data.get('saldo acumulado', ''),
-                'valor_total_display': data.get('valor a pagar', ''),
+                'data_emissao': data_emissao,
+                'data_vencimento': data_vencimento,
+                'saldo_acumulado_display': saldo_acumulado,
+                'valor_total_display': valor_a_pagar,
+                'leitura_anterior': leitura_anterior,
+                'leitura_atual': leitura_atual,
                 'codigo_barras': '',
             },
-            'economia_display': data.get('Economia', ''),
+            'economia_display': economia,
             'consumo_atual': consumo_atual,
-            'energia_ativa_display': data.get('Energia Atv Injetada', ''),
-            'preco_unitario_display': data.get('preco unit com tributos', ''),
+            'energia_ativa_display': energia_injetada,
+            'preco_unitario_display': preco_unitario,
             'historico_consumo': historico_consumo,
             'historico_resumo': '',
         }

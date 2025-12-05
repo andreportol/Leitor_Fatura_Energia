@@ -30,7 +30,7 @@
       }
 
       .header {
-        background: linear-gradient(110deg, #0f0f0f 0%, #131313 65%, #ffd700 100%);
+        background: #000;
         color: white;
         padding: 28px 36px;
         display: flex;
@@ -49,7 +49,8 @@
       .logo-image {
         max-height: 92px;
         width: auto;
-        border-radius: 12px;
+        border-radius: 10px;
+        object-fit: contain;
         background: rgba(255, 255, 255, 0.08);
         padding: 6px 12px;
         box-shadow: 0 12px 25px rgba(0, 0, 0, 0.26);
@@ -113,6 +114,46 @@
       .highlight {
         color: #111;
         font-weight: 600;
+      }
+
+      .highlight-danger {
+        color: #c62828;
+        font-weight: 700;
+      }
+
+      .info-full {
+        grid-column: 1 / -1;
+      }
+
+      .info-row {
+        grid-column: 1 / -1;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 10px 18px;
+      }
+
+      .qrcode-area {
+        text-align: center;
+        margin: 22px 36px 32px;
+        padding: 16px 18px;
+        background-color: #fff;
+        border-top: 2px dashed #111;
+      }
+
+      .qrcode-image {
+        width: 165px;
+        display: block;
+        margin: 0 auto 8px;
+        border-radius: 12px;
+        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+        background: #fff;
+        padding: 5px;
+      }
+
+      .qrcode-caption {
+        font-size: 0.65rem;
+        color: #666;
+        letter-spacing: 0.04em;
       }
 
       .address-info {
@@ -293,41 +334,6 @@
         font-size: 0.9rem;
       }
 
-      .barcode-area {
-        text-align: center;
-        margin: 22px 36px 32px;
-        padding: 16px 18px;
-        background-color: #fff;
-        border-top: 2px dashed #111;
-      }
-
-      .barcode-placeholder {
-        min-height: 95px;
-        background-color: #f1f1f1;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: #666;
-        font-style: italic;
-        border-radius: 12px;
-      }
-
-      .qrcode-image {
-        width: 165px;
-        display: block;
-        margin: 0 auto 8px;
-        border-radius: 12px;
-        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
-        background: #fff;
-        padding: 5px;
-      }
-
-      .qrcode-caption {
-        font-size: 0.65rem;
-        color: #666;
-        letter-spacing: 0.04em;
-      }
-
       .footer {
         background-color: #111;
         color: white;
@@ -399,25 +405,39 @@
       <section class="client-info">
         <h3>Dados do Cliente</h3>
         <div class="info-grid">
-          <div class="info-item">
-            <strong>Nome:</strong>
-            <span class="highlight">{{ cliente.nome }}</span>
+          <div class="info-row">
+            <div class="info-item">
+              <strong>Nome:</strong>
+              <span class="highlight">{{ cliente.nome }}</span>
+            </div>
+            <div class="info-item">
+              <strong>Código UC:</strong>
+              <span class="highlight">{{ cliente.codigo_uc }}</span>
+            </div>
           </div>
-          <div class="info-item">
-            <strong>Data de Emissão:</strong>
-            <span class="highlight">{{ fatura.data_emissao }}</span>
+          <div class="info-item info-full">
+            <strong>Endereço:</strong>
+            <span class="highlight">{{ cliente.endereco }}</span>
           </div>
-          <div class="info-item">
-            <strong>Código UC:</strong>
-            <span class="highlight">{{ cliente.codigo_uc }}</span>
+          <div class="info-row">
+            <div class="info-item">
+              <strong>Leitura Anterior:</strong>
+              <span class="highlight">{{ fatura.leitura_anterior }}</span>
+            </div>
+            <div class="info-item">
+              <strong>Leitura Atual:</strong>
+              <span class="highlight">{{ fatura.leitura_atual }}</span>
+            </div>
           </div>
-          <div class="info-item">
-            <strong>Data de Vencimento:</strong>
-            <span class="highlight">{{ fatura.data_vencimento }}</span>
-          </div>
-          <div class="info-item">
-            <strong>Saldo Acumulado:</strong>
-            <span class="highlight">{{ fatura.saldo_acumulado_display }}</span>
+          <div class="info-row">
+            <div class="info-item">
+              <strong>Data de Emissão:</strong>
+              <span class="highlight">{{ fatura.data_emissao }}</span>
+            </div>
+            <div class="info-item">
+              <strong>Data de Vencimento:</strong>
+              <span class="highlight highlight-danger">{{ fatura.data_vencimento }}</span>
+            </div>
           </div>
         </div>       
       </section>
@@ -478,7 +498,7 @@
             </tr>
           </thead>
           <tbody>
-            {% for item in historico_consumo reversed %}
+            {% for item in historico_consumo %}
             <tr>
               <td>{{ item.rotulo }}</td>
               <td class="{% if not item.has_consumo %}zero-consumption{% endif %}">
@@ -503,7 +523,7 @@
       </section>
       {% endif %}
 
-      <section class="barcode-area">
+      <section class="qrcode-area">
         <img
           src="{{ qrcode_path|default:default_qrcode }}"
           alt="QR Code para pagamento"
@@ -512,10 +532,6 @@
         <p class="qrcode-caption">
           Chave pix: alpsistemascg@gmail.com
         </p>
-        <div class="barcode-placeholder">
-          Código de Barras: {{ fatura.codigo_barras }}<br/>
-          <small>Utilize este código para pagamento em bancos ou aplicativos</small><br/><br/><br/>
-        </div>
       </section>
 
       <footer class="footer">
