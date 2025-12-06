@@ -138,6 +138,9 @@
       }
 
       .qrcode-area {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
         text-align: center;
         margin: 22px 36px 32px;
         padding: 16px 18px;
@@ -159,6 +162,47 @@
         font-size: 0.65rem;
         color: #666;
         letter-spacing: 0.04em;
+        text-align: center;
+      }
+
+      .qrcode-actions {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 8px;
+      }
+
+      .copy-pix-button {
+        background: #111;
+        color: #fff;
+        border: none;
+        border-radius: 999px;
+        padding: 8px 14px;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        cursor: pointer;
+        box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
+        transition: transform 0.1s ease, box-shadow 0.1s ease;
+      }
+
+      .copy-pix-button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 12px 24px rgba(0, 0, 0, 0.2);
+      }
+
+      .copy-pix-button:active {
+        transform: translateY(0);
+        box-shadow: 0 6px 14px rgba(0, 0, 0, 0.18);
+      }
+
+      .copy-feedback {
+        margin-top: 6px;
+        font-size: 0.72rem;
+        color: #00b894;
+        min-height: 16px;
       }
 
       .address-info {
@@ -571,9 +615,16 @@
           alt="QR Code para pagamento"
           class="qrcode-image"
         />
-        <p class="qrcode-caption">
-          Chave pix: alpsistemascg@gmail.com
-        </p>
+        <div class="qrcode-actions">
+          <p class="qrcode-caption">
+            Chave pix:
+            <span id="pix-key">{{ pix_key|default:"alpsistemascg@gmail.com" }}</span>
+          </p>
+          <button type="button" class="copy-pix-button" onclick="copyPixKey()">
+            Copiar chave PIX
+          </button>
+        </div>
+        <p class="copy-feedback" id="copy-feedback" aria-live="polite"></p>
       </section>
 
       <footer class="footer">
@@ -589,5 +640,56 @@
         </div>
       </footer>
     </div>
+    <script>
+      (function () {
+        const feedbackEl = document.getElementById('copy-feedback');
+
+        function setFeedback(message, isError) {
+          if (!feedbackEl) return;
+          feedbackEl.textContent = message || '';
+          feedbackEl.style.color = isError ? '#d63031' : '#00b894';
+        }
+
+        function fallbackCopy(key) {
+          const textarea = document.createElement('textarea');
+          textarea.value = key;
+          textarea.setAttribute('readonly', '');
+          textarea.style.position = 'fixed';
+          textarea.style.top = '-1000px';
+          document.body.appendChild(textarea);
+          textarea.select();
+          let success = false;
+          try {
+            success = document.execCommand('copy');
+          } catch (e) {
+            success = false;
+          }
+          document.body.removeChild(textarea);
+          setFeedback(success ? 'Chave PIX copiada.' : 'NÇ§o foi possÇ­vel copiar agora.', !success);
+        }
+
+        window.copyPixKey = function () {
+          const keyEl = document.getElementById('pix-key');
+          const key = keyEl ? keyEl.textContent.trim() : '';
+          if (!key) {
+            setFeedback('Chave nÇœo encontrada.', true);
+            return;
+          }
+
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard
+              .writeText(key)
+              .then(function () {
+                setFeedback('Chave PIX copiada.');
+              })
+              .catch(function () {
+                fallbackCopy(key);
+              });
+          } else {
+            fallbackCopy(key);
+          }
+        };
+      })();
+    </script>
   </body>
 </html>

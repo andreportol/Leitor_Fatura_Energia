@@ -211,6 +211,7 @@ EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD', '').replace(' ', '')
 DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER)
 CONTACT_EMAIL = env('CONTACT_EMAIL', 'alpsistemascg@gmail.com')
 WHATSAPP_NUMBER = env('WHATSAPP_NUMBER', '')
+PIX_KEY = env('PIX_KEY', 'alpsistemascg@gmail.com')
 
 # Jazzmin (Admin theme) settings
 JAZZMIN_SETTINGS = {

@@ -1,10 +1,11 @@
 import io
 import logging
+import os
+import re
 import zipfile
 from datetime import timedelta
-from pathlib import Path
 from decimal import Decimal
-import os
+from pathlib import Path
 
 from django.conf import settings
 from django.contrib import messages
@@ -359,13 +360,39 @@ class ProcessamentoView(LoginRequiredMixin, TemplateView):
                 return valor
         return ''
 
+    def _simplify_endereco(self, endereco: str) -> str:
+        """
+        Remove partes detalhadas (ex.: quadra/lote) para deixar o endereÇõo mais limpo.
+        Exemplo: "RUA X, 123 - QD 58 LT 04 - 08 103 37 362000 - 79094550 Y"
+        vira "RUA X, 123 - 79094550 Y".
+        """
+        if not endereco:
+            return ''
+
+        parts = [p.strip() for p in endereco.split('-')]
+        filtered = []
+        for part in parts:
+            if not part:
+                continue
+            upper = part.upper()
+            if any(tag in upper for tag in ('QD', 'QUADRA', 'LT', 'LOTE')):
+                continue
+            if re.fullmatch(r'[\d\s]+', part):
+                continue
+            filtered.append(part)
+
+        cleaned = ' - '.join(filtered)
+        cleaned = re.sub(r'\s*\([^)]*\)', '', cleaned)  # remove parenteses extras (ex.: AG: 103)
+        cleaned = ' '.join(cleaned.split())
+        return cleaned.strip(' -')
+
     def _build_invoice_context(self, data, cliente):
         historico_raw = data.get('historico_de_consumo') or data.get('historico de consumo')
         historico_consumo = self._build_historico(historico_raw)
         consumo_atual = self._fallback_consumo_atual(data)
         nome_cliente = data.get('nome_do_cliente') or data.get('nome do cliente', '')
         codigo_uc = data.get('codigo_do_cliente_uc') or data.get('codigo do cliente - uc', '')
-        endereco = data.get('endereco', '')
+        endereco = self._simplify_endereco(data.get('endereco', ''))
         data_emissao = data.get('data_de_emissao') or data.get('data de emissao', '')
         data_vencimento = data.get('data_de_vencimento') or data.get('data de vencimento', '')
         valor_a_pagar = data.get('valor_a_pagar') or data.get('valor a pagar', '')
@@ -375,10 +402,12 @@ class ProcessamentoView(LoginRequiredMixin, TemplateView):
         saldo_acumulado = data.get('saldo_acumulado') or data.get('saldo acumulado', '')
         mes_referencia = data.get('mes_referencia') or data.get('mes de referencia', '')
         leitura_anterior = data.get('leitura_anterior') or data.get('leitura anterior', '')
+        pix_key = getattr(settings, 'PIX_KEY', 'alpsistemascg@gmail.com')
         leitura_atual = data.get('leitura_atual') or data.get('leitura atual', '')
         return {
             'logo_path': self._absolute_static('img/logomarca.png'),
             'qrcode_path': self._absolute_static('img/qrcode_bancobrasil.jpeg'),
+            'pix_key': pix_key,
             'mes_referencia': mes_referencia,
             'cliente': {
                 'nome': nome_cliente or getattr(cliente, 'nome', ''),

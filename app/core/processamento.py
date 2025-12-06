@@ -242,7 +242,7 @@ INSTRUÇÃO CRÍTICA SOBRE ENERGIA ATIVA INJETADA (json):
 - 'energia_atv_injetada_valor': valor total R$ associado à energia injetada (positivo no JSON).
 - 'historico_de_consumo': liste os meses e consumos em kWh do histórico (ex.: 'SET/25', 'AGO/25', etc).
 - 'economia' e 'valor_a_pagar' podem ser calculados assim:
-    base = energia_atv_injetada_kwh * preco_unitario
+    base = energia_atv_injetada_valor
     economia = base * 0.3
     valor_a_pagar = base * 0.7
   Retorne-os em formato '999,99'.
