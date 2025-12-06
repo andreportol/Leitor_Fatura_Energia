@@ -142,6 +142,9 @@
                                     <ul class="list-group list-group-flush mt-3" id="fileList">
                                         <li class="list-group-item small text-muted">Nenhum arquivo selecionado.</li>
                                     </ul>
+                                    <div class="mt-2 small text-muted">
+                                        Total selecionado: <strong><span id="fileCount">0</span> arquivo(s)</strong>
+                                    </div>
                                 </div>
                                 <button type="submit" class="btn btn-primary" id="processButton"><i class="fas fa-gear me-2"></i>Processar</button>
                                 <div class="mt-2 d-none" id="processSpinner">
@@ -155,7 +158,7 @@
                     </div>
 
                     {% if has_processed_files %}
-                    <div class="card shadow border-2 border-secondary-subtle rounded-4 mb-4">
+                    <div class="card shadow border-2 border-secondary-subtle rounded-4 mb-4" id="processedCard">
                         <div class="card-body p-4">
                             <div class="d-flex align-items-center mb-3">
                                 <div class="me-3 text-success"><i class="fas fa-download fa-lg"></i></div>
@@ -164,11 +167,11 @@
                                     <h2 class="h5 mb-0">Download das faturas geradas</h2>
                                 </div>
                             </div>
-                            <ul class="list-group list-group-flush">
+                            <ul class="list-group list-group-flush" id="processedList">
                                 {% for item in processed_files %}
                                 <li class="list-group-item d-flex justify-content-between align-items-center">
                                     <span class="h5 fw-semibold mb-0 text-success">{{ item.name }}</span>
-                                    <form method="post" action="{% url 'core:processamento' %}" class="m-0">
+                                    <form method="post" action="{% url 'core:processamento' %}" class="m-0" data-download-form="single">
                                         {% csrf_token %}
                                         <input type="hidden" name="action" value="download_file">
                                         <input type="hidden" name="file_index" value="{{ forloop.counter0 }}">
@@ -181,7 +184,7 @@
                             </ul>
                             {% if processed_files|length > 1 %}
                             <div class="d-flex justify-content-end mt-3">
-                                <form method="post" action="{% url 'core:processamento' %}" class="m-0">
+                                <form method="post" action="{% url 'core:processamento' %}" class="m-0" data-download-form="all">
                                     {% csrf_token %}
                                     <input type="hidden" name="action" value="download_all">
                                     <button class="btn btn-success btn-sm" type="submit">
@@ -291,41 +294,69 @@
         (function() {
             const input = document.getElementById('invoiceFiles');
             const list = document.getElementById('fileList');
+            const countEl = document.getElementById('fileCount');
             const form = document.getElementById('invoiceForm');
             const processButton = document.getElementById('processButton');
             const processSpinner = document.getElementById('processSpinner');
             if (!input || !list) return;
 
             let isSubmitting = false;
+            let selectedFiles = [];
 
-            const renderList = (files) => {
-                if (!files.length) {
+            const setCount = (count) => {
+                if (countEl) countEl.textContent = count;
+            };
+
+            const syncInputFiles = () => {
+                const dt = new DataTransfer();
+                selectedFiles.forEach((f) => dt.items.add(f));
+                input.files = dt.files;
+            };
+
+            const renderList = () => {
+                if (!selectedFiles.length) {
                     list.innerHTML = '<li class="list-group-item small text-muted">Nenhum arquivo selecionado.</li>';
+                    setCount(0);
                     return;
                 }
-                list.innerHTML = files.map((file, idx) => {
+                list.innerHTML = selectedFiles.map((file, idx) => {
                     const sizeMb = (file.size / (1024 * 1024)).toFixed(2);
-                    return `<li class="list-group-item d-flex justify-content-between align-items-center">
-                                    <span class="file-name h5 fw-semibold text-secondary mb-0" data-file-name-for="${idx}">${file.name}</span>
+                    return `<li class="list-group-item d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                    <span class="file-name h6 fw-semibold text-secondary mb-0" data-file-name-for="${idx}">${file.name}</span>
                                 <div class="d-flex align-items-center gap-2">
                                     <span class="badge bg-secondary" data-status-for="${idx}">Aguardando</span>
                                     <span class="badge bg-light text-muted">${sizeMb} MB</span>
+                                    <button type="button" class="btn btn-sm btn-outline-danger" data-remove-index="${idx}">
+                                        <i class="fas fa-times me-1"></i>Remover
+                                    </button>
                                 </div>
                             </li>`;
                 }).join('');
+                setCount(selectedFiles.length);
             };
 
             input.addEventListener('change', () => {
-                renderList(Array.from(input.files || []));
+                selectedFiles = Array.from(input.files || []);
+                renderList();
+            });
+
+            list.addEventListener('click', (event) => {
+                const btn = event.target.closest('[data-remove-index]');
+                if (!btn) return;
+                const idx = parseInt(btn.getAttribute('data-remove-index'), 10);
+                if (Number.isNaN(idx)) return;
+                selectedFiles.splice(idx, 1);
+                syncInputFiles();
+                renderList();
             });
 
             if (form) {
                 form.addEventListener('submit', (e) => {
                     if (isSubmitting) return;
-                    const files = Array.from(input.files || []);
-                    if (!files.length) {
+                    if (!selectedFiles.length) {
                         e.preventDefault();
                         list.innerHTML = '<li class="list-group-item small text-danger">Selecione ao menos um PDF.</li>';
+                        setCount(0);
                         return;
                     }
                     isSubmitting = true;
@@ -416,6 +447,36 @@
                 collapseEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 // Ajusta pela navbar fixa
                 setTimeout(() => window.scrollBy({ top: -90, behavior: 'smooth' }), 150);
+            });
+        })();
+        (function() {
+            const processedList = document.getElementById('processedList');
+            const processedCard = document.getElementById('processedCard');
+            const downloadForms = document.querySelectorAll('form[data-download-form]');
+            if (!processedList || !downloadForms.length) return;
+
+            const hideCardIfEmpty = () => {
+                if (!processedList.querySelector('li')) {
+                    if (processedCard) processedCard.classList.add('d-none');
+                }
+            };
+
+            downloadForms.forEach((form) => {
+                form.addEventListener('submit', () => {
+                    const type = form.getAttribute('data-download-form');
+                    if (type === 'single') {
+                        setTimeout(() => {
+                            const li = form.closest('li');
+                            if (li) li.remove();
+                            hideCardIfEmpty();
+                        }, 200);
+                    }
+                    if (type === 'all') {
+                        setTimeout(() => {
+                            if (processedCard) processedCard.classList.add('d-none');
+                        }, 200);
+                    }
+                });
             });
         })();
     </script>
