@@ -9,6 +9,53 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{% static 'css/index.css' %}">
+    <style>
+        .file-list-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: nowrap;
+        }
+        .file-meta {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        @media (max-width: 575.98px) {
+            .file-list-item {
+                display: grid;
+                grid-template-columns: 1fr 1fr auto;
+                grid-template-areas:
+                  "name name name"
+                  "meta meta remove";
+                align-items: center;
+                gap: 8px;
+            }
+            .file-name {
+                word-break: break-word;
+                grid-area: name;
+            }
+            .file-meta {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                width: 100%;
+                grid-area: meta;
+                justify-self: start;
+            }
+            .file-status {
+                justify-self: start;
+            }
+            .file-size {
+                justify-self: center;
+            }
+            .file-remove-btn {
+                grid-area: remove;
+                justify-self: end;
+            }
+        }
+    </style>
 </head>
 <body class="bg-light">
     <nav class="navbar navbar-expand-md navbar-light bg-white shadow-sm sticky-top">
@@ -321,15 +368,15 @@
                 }
                 list.innerHTML = selectedFiles.map((file, idx) => {
                     const sizeMb = (file.size / (1024 * 1024)).toFixed(2);
-                    return `<li class="list-group-item d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    return `<li class="list-group-item file-list-item">
                                     <span class="file-name h6 fw-semibold text-secondary mb-0" data-file-name-for="${idx}">${file.name}</span>
-                                <div class="d-flex align-items-center gap-2">
-                                    <span class="badge bg-secondary" data-status-for="${idx}">Aguardando</span>
-                                    <span class="badge bg-light text-muted">${sizeMb} MB</span>
-                                    <button type="button" class="btn btn-sm btn-outline-danger" data-remove-index="${idx}">
-                                        <i class="fas fa-times me-1"></i>Remover
-                                    </button>
+                                <div class="file-meta">
+                                    <span class="badge bg-secondary file-status" data-status-for="${idx}">Aguardando</span>
+                                    <span class="badge bg-light text-muted file-size">${sizeMb} MB</span>
                                 </div>
+                                <button type="button" class="btn btn-sm btn-outline-danger file-remove-btn" data-remove-index="${idx}">
+                                    <i class="fas fa-times me-1"></i>Remover
+                                </button>
                             </li>`;
                 }).join('');
                 setCount(selectedFiles.length);

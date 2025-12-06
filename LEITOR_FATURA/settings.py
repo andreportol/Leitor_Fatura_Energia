@@ -65,6 +65,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'app.core.middleware.InactiveLogoutMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -212,6 +213,9 @@ DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER)
 CONTACT_EMAIL = env('CONTACT_EMAIL', 'alpsistemascg@gmail.com')
 WHATSAPP_NUMBER = env('WHATSAPP_NUMBER', '')
 PIX_KEY = env('PIX_KEY', 'alpsistemascg@gmail.com')
+SESSION_IDLE_TIMEOUT = int(env('SESSION_IDLE_TIMEOUT', 900))  # 15 minutos de inatividade
+SESSION_COOKIE_AGE = SESSION_IDLE_TIMEOUT
+SESSION_SAVE_EVERY_REQUEST = True
 
 # Jazzmin (Admin theme) settings
 JAZZMIN_SETTINGS = {
