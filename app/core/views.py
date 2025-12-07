@@ -3,7 +3,7 @@ import logging
 import os
 import re
 import zipfile
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone as dt_timezone
 from decimal import Decimal
 from pathlib import Path
 
@@ -114,7 +114,7 @@ class LoginView(View):
             return 0
 
         now = timezone.now()
-        lock_until = timezone.datetime.fromtimestamp(lock_until_ts, tz=timezone.utc)
+        lock_until = datetime.fromtimestamp(lock_until_ts, tz=dt_timezone.utc)
         remaining = (lock_until - now).total_seconds()
         if remaining <= 0:
             self._clear_lockout(request)
