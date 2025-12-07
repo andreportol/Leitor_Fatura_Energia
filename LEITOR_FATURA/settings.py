@@ -149,7 +149,7 @@ TIME_ZONE = 'America/Sao_Paulo'
 
 USE_I18N = True
 
-USE_TZ = False
+USE_TZ = True
 
 USE_L10N = True # serve para deixar o formato da data em 'd/m/Y'
 
