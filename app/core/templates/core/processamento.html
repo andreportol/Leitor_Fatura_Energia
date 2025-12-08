@@ -204,6 +204,53 @@
                         </div>
                     </div>
 
+                    {% if is_vip %}
+                    <div class="card shadow border-2 border-primary-subtle rounded-4 mb-4">
+                        <div class="card-body p-4">
+                            <div class="d-flex align-items-center mb-3">
+                                <div class="me-3 text-primary"><i class="fas fa-crown fa-lg"></i></div>
+                                <div>
+                                    <p class="text-uppercase text-primary fw-semibold mb-1 small">Cliente VIP</p>
+                                    <h2 class="h5 mb-0">Envio automático de faturas</h2>
+                                </div>
+                            </div>
+                            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                                <p class="text-muted small mb-0">Cadastre destinatários para receber as faturas processadas. O e-mail é usado no envio automático; o telefone gera o link de WhatsApp.</p>
+                                <a class="btn btn-outline-primary btn-sm" href="{% url 'core:contatos' %}">
+                                    <i class="fas fa-gear me-1"></i> Administração
+                                </a>
+                            </div>
+                            <datalist id="contactSuggestions">
+                                {% for contato in contatos %}
+                                    <option value="{{ contato.nome }}"></option>
+                                {% endfor %}
+                            </datalist>
+                            <form method="post" action="{% url 'core:processamento' %}" class="row g-3 align-items-end">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="save_contact">
+                                <div class="col-md-4">
+                                    <label class="form-label">Nome do destinatário</label>
+                                    <input type="text" name="contact_name" class="form-control" list="contactSuggestions" required placeholder="Ex.: João da Silva">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">E-mail</label>
+                                    <input type="email" name="contact_email" class="form-control" placeholder="contato@email.com">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Telefone (WhatsApp)</label>
+                                    <input type="text" name="contact_phone" class="form-control" placeholder="(67) 99999-9999">
+                                </div>
+                                <div class="col-md-1 d-grid">
+                                    <button type="submit" class="btn btn-primary text-white">
+                                        <i class="fas fa-plus"></i>
+                                    </button>
+                                </div>
+                            </form>
+                            <div class="text-muted small mt-3">Contatos cadastrados: {{ contacts_total }}</div>
+                        </div>
+                    </div>
+                    {% endif %}
+
                     {% if has_processed_files %}
                     <div class="card shadow border-2 border-secondary-subtle rounded-4 mb-4" id="processedCard">
                         <div class="card-body p-4">
@@ -211,26 +258,47 @@
                                 <div class="me-3 text-success"><i class="fas fa-download fa-lg"></i></div>
                                 <div>
                                     <p class="text-uppercase text-success fw-semibold mb-1 small">Faturas prontas</p>
-                                    <h2 class="h5 mb-0">Download das faturas geradas</h2>
+                                    <h2 class="h5 mb-0">Download e envio das faturas geradas</h2>
                                 </div>
                             </div>
                             <ul class="list-group list-group-flush" id="processedList">
                                 {% for item in processed_files %}
-                                <li class="list-group-item d-flex justify-content-between align-items-center">
-                                    <span class="h5 fw-semibold mb-0 text-success">{{ item.name }}</span>
-                                    <form method="post" action="{% url 'core:processamento' %}" class="m-0" data-download-form="single">
-                                        {% csrf_token %}
-                                        <input type="hidden" name="action" value="download_file">
-                                        <input type="hidden" name="file_index" value="{{ forloop.counter0 }}">
-                                        <button class="btn btn-outline-success btn-sm" type="submit">
-                                            <i class="fas fa-file-arrow-down me-1"></i>Baixar
-                                        </button>
-                                    </form>
+                                <li class="list-group-item d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-2">
+                                    <div>
+                                        <div class="h5 fw-semibold mb-0 text-success">{{ item.name }}</div>
+                                        {% if item.contact_name %}
+                                            <div class="text-muted small">Cliente: {{ item.contact_name }}</div>
+                                        {% endif %}
+                                        {% if item.suggested_contact_id %}
+                                            <div class="text-muted small">Contato sugerido: ID {{ item.suggested_contact_id }}</div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="d-flex gap-2 flex-wrap">
+                                        <form method="post" action="{% url 'core:processamento' %}" class="m-0" data-download-form="single">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="action" value="download_file">
+                                            <input type="hidden" name="file_index" value="{{ forloop.counter0 }}">
+                                            <button class="btn btn-outline-success btn-sm" type="submit">
+                                                <i class="fas fa-file-arrow-down me-1"></i>Baixar
+                                            </button>
+                                        </form>
+                                        {% if is_vip %}
+                                        <form method="post" action="{% url 'core:processamento' %}" class="m-0 d-flex gap-2">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="action" value="send_invoice">
+                                            <input type="hidden" name="file_index" value="{{ forloop.counter0 }}">
+                                            <input type="text" name="contact_name" class="form-control form-control-sm" list="contactSuggestions" placeholder="Nome do contato">
+                                            <button class="btn btn-success btn-sm" type="submit">
+                                                <i class="fas fa-paper-plane me-1"></i>Enviar
+                                            </button>
+                                        </form>
+                                        {% endif %}
+                                    </div>
                                 </li>
                                 {% endfor %}
                             </ul>
                             {% if processed_files|length > 1 %}
-                            <div class="d-flex justify-content-end mt-3">
+                            <div class="d-flex justify-content-end mt-3 gap-2 flex-wrap">
                                 <form method="post" action="{% url 'core:processamento' %}" class="m-0" data-download-form="all">
                                     {% csrf_token %}
                                     <input type="hidden" name="action" value="download_all">
@@ -238,6 +306,15 @@
                                         <i class="fas fa-file-zipper me-2"></i>Baixar todas em ZIP
                                     </button>
                                 </form>
+                                {% if is_vip %}
+                                <form method="post" action="{% url 'core:processamento' %}" class="m-0">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="send_all">
+                                    <button class="btn btn-primary btn-sm text-white" type="submit">
+                                        <i class="fas fa-bolt me-2"></i>Enviar todas (auto por nome)
+                                    </button>
+                                </form>
+                                {% endif %}
                             </div>
                             {% endif %}
                         </div>
@@ -409,15 +486,15 @@
                     isSubmitting = true;
                     const badges = list.querySelectorAll('[data-status-for]');
                     badges.forEach((badge) => {
-                        badge.classList.remove('bg-secondary', 'bg-success', 'bg-danger');
-                        badge.classList.add('bg-warning', 'text-dark');
+                        badge.classList.remove('bg-secondary', 'bg-success', 'bg-danger', 'text-dark');
+                        badge.classList.add('bg-primary', 'text-white');
                         badge.textContent = 'Processando...';
 
                         const idx = badge.getAttribute('data-status-for');
                         const nameEl = list.querySelector(`[data-file-name-for="${idx}"]`);
                         if (nameEl) {
                             nameEl.classList.remove('text-secondary', 'text-success', 'text-danger');
-                            nameEl.classList.add('text-warning');
+                            nameEl.classList.add('text-primary');
                             nameEl.style.fontSize = '1rem';
                         }
                     });

@@ -3,7 +3,7 @@ from django.contrib import admin
 from django.contrib.auth.hashers import identify_hasher, make_password
 from django.contrib.auth import get_user_model
 
-from .models import Cliente
+from .models import Cliente, ClienteContato
 
 User = get_user_model()
 
@@ -67,3 +67,11 @@ class ClienteAdmin(admin.ModelAdmin):
         if cliente.user_id != user.id:
             cliente.user = user
             cliente.save(update_fields=['user'])
+
+
+@admin.register(ClienteContato)
+class ClienteContatoAdmin(admin.ModelAdmin):
+    list_display = ('nome', 'email', 'telefone', 'cliente', 'created_at', 'updated_at')
+    search_fields = ('nome', 'email', 'cliente__nome')
+    list_filter = ('cliente',)
+    readonly_fields = ('created_at', 'updated_at')

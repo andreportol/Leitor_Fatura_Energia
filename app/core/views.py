@@ -6,13 +6,14 @@ import zipfile
 from datetime import datetime, timedelta, timezone as dt_timezone
 from decimal import Decimal
 from pathlib import Path
+from urllib.parse import quote
 
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import authenticate, get_user_model, login, logout, update_session_auth_hash
 from django.contrib.auth.hashers import identify_hasher, make_password
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.db import IntegrityError
+from django.db import IntegrityError, models
 from django.core.mail import EmailMessage
 from django.contrib.staticfiles.storage import staticfiles_storage
 from django.http import HttpResponse, JsonResponse
@@ -23,8 +24,9 @@ from django.utils import timezone
 from django.utils.text import slugify
 from django.views import View
 from django.views.generic import TemplateView
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 
-from app.core.models import Cliente
+from app.core.models import Cliente, ClienteContato
 from app.core.processamento import processar_pdf
 
 logger = logging.getLogger(__name__)
@@ -50,6 +52,105 @@ class QuemSomosView(TemplateView):
 
 class CadastroView(TemplateView):
     template_name = 'core/cadastro.html'
+
+class ContatoCrudView(LoginRequiredMixin, TemplateView):
+    template_name = 'core/contatos.html'
+    login_url = 'core:login'
+
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return self.handle_no_permission()
+        cliente = getattr(request.user, 'cliente', None)
+        if not cliente or not cliente.is_VIP:
+            messages.error(request, 'Área restrita a clientes VIP.')
+            return redirect('core:processamento')
+        request.session['cliente_id'] = cliente.id
+        request.session['cliente_nome'] = cliente.nome
+        return super().dispatch(request, *args, **kwargs)
+
+    def post(self, request, *args, **kwargs):
+        cliente = getattr(request.user, 'cliente', None)
+        if not cliente or not cliente.is_VIP:
+            messages.error(request, 'Área restrita a clientes VIP.')
+            return redirect('core:processamento')
+
+        action = request.POST.get('action')
+        if action == 'save_contact':
+            return self._handle_save_contact(request, cliente)
+        if action == 'delete_contact':
+            return self._handle_delete_contact(request, cliente)
+
+        messages.error(request, 'Ação inválida.')
+        return redirect('core:contatos')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        cliente = getattr(self.request.user, 'cliente', None)
+        context['cliente'] = cliente
+        search = self.request.GET.get('contact_q', '').strip()
+        contatos_qs = cliente.contatos.all()
+        if search:
+            contatos_qs = contatos_qs.filter(models.Q(nome__icontains=search) | models.Q(email__icontains=search))
+        contatos_qs = contatos_qs.order_by('nome')
+        paginator = Paginator(contatos_qs, 10)
+        page = self.request.GET.get('page') or 1
+        try:
+            page_obj = paginator.page(page)
+        except (PageNotAnInteger, EmptyPage):
+            page_obj = paginator.page(1)
+
+        context['contatos'] = list(page_obj.object_list)
+        context['contact_search'] = search
+        context['contacts_total'] = paginator.count
+        context['page_obj'] = page_obj
+        context['paginator'] = paginator
+        return context
+
+    def _handle_save_contact(self, request, cliente):
+        contact_id = request.POST.get('contact_id')
+        nome = request.POST.get('contact_name', '').strip()
+        email = request.POST.get('contact_email', '').strip()
+        telefone = request.POST.get('contact_phone', '').strip()
+
+        if not nome:
+            messages.error(request, 'Informe o nome do contato.')
+            return redirect('core:contatos')
+
+        if not email and not telefone:
+            messages.error(request, 'Informe e-mail ou telefone para o contato.')
+            return redirect('core:contatos')
+
+        if contact_id:
+            contato = ClienteContato.objects.filter(pk=contact_id, cliente=cliente).first()
+            if not contato:
+                messages.error(request, 'Contato não encontrado.')
+                return redirect('core:contatos')
+        else:
+            contato = ClienteContato(cliente=cliente)
+
+        contato.nome = nome
+        contato.email = email or None
+        contato.telefone = telefone or None
+        try:
+            contato.save()
+        except Exception as exc:
+            logger.exception('Erro ao salvar contato VIP')
+            messages.error(request, f'Não foi possível salvar o contato: {exc}')
+            return redirect('core:contatos')
+
+        messages.success(request, 'Contato salvo com sucesso.')
+        return redirect('core:contatos')
+
+    def _handle_delete_contact(self, request, cliente):
+        contact_id = request.POST.get('contact_id')
+        contato = ClienteContato.objects.filter(pk=contact_id, cliente=cliente).first()
+        if not contato:
+            messages.error(request, 'Contato não encontrado.')
+            return redirect('core:contatos')
+
+        contato.delete()
+        messages.success(request, 'Contato removido.')
+        return redirect('core:contatos')
 
 
 class ContactFormView(View):
@@ -267,6 +368,14 @@ class ProcessamentoView(LoginRequiredMixin, TemplateView):
             return self._handle_download_file(request)
         if action == 'download_all':
             return self._handle_download_all(request)
+        if action == 'save_contact':
+            return self._handle_save_contact(request, cliente)
+        if action == 'delete_contact':
+            return self._handle_delete_contact(request, cliente)
+        if action == 'send_invoice':
+            return self._handle_send_invoice(request, cliente)
+        if action == 'send_all':
+            return self._handle_send_all(request, cliente)
 
         messages.error(request, 'Ação inválida.')
         return redirect('core:processamento')
@@ -465,7 +574,8 @@ class ProcessamentoView(LoginRequiredMixin, TemplateView):
                 parsed = processar_pdf(f)
                 context = self._build_invoice_context(parsed, cliente)
                 html = render_to_string('core/modelo_fatura.html', context)
-                outputs.append((Path(f.name).stem or 'fatura', html))
+                nome_para_arquivo = context.get('cliente', {}).get('nome') or getattr(cliente, 'nome', '')
+                outputs.append((Path(f.name).stem or 'fatura', html, nome_para_arquivo))
             except Exception as exc:
                 logger.exception('Erro ao processar fatura %s', f.name)
                 messages.error(request, f'Erro ao processar {f.name}: {exc}')
@@ -474,12 +584,22 @@ class ProcessamentoView(LoginRequiredMixin, TemplateView):
             return redirect('core:processamento')
 
         processed = []
-        for name, html in outputs:
-            safe_name = slugify(name) or 'fatura'
+        contatos_cache = list(ClienteContato.objects.filter(cliente=cliente)) if cliente.is_VIP else []
+        for idx, (name, html, nome_para_arquivo) in enumerate(outputs, start=1):
+            if cliente.is_VIP:
+                base_name = slugify(nome_para_arquivo) or slugify(cliente.nome) or 'cliente'
+                suffix = f'-{idx}' if len(outputs) > 1 else ''
+                safe_name = f'{base_name}{suffix}'
+                contact_match = self._match_contact_by_name(contatos_cache, nome_para_arquivo)
+            else:
+                safe_name = slugify(name) or 'fatura'
+                contact_match = None
             processed.append({
                 'name': f'{safe_name}.html',
                 'content': html,
                 'status': 'processado',
+                'contact_name': nome_para_arquivo,
+                'suggested_contact_id': contact_match.id if contact_match else None,
             })
 
         # Debita os créditos apenas pelas faturas geradas
@@ -540,6 +660,19 @@ class ProcessamentoView(LoginRequiredMixin, TemplateView):
         processed = self._get_processed_files(self.request)
         context['processed_files'] = processed
         context['has_processed_files'] = bool(processed)
+        context['is_vip'] = bool(getattr(cliente, 'is_VIP', False))
+        if getattr(cliente, 'is_VIP', False):
+            contatos_lista = list(cliente.contatos.order_by('nome'))
+            context['contatos'] = contatos_lista
+            context['contacts_total'] = len(contatos_lista)
+        else:
+            context['contatos'] = []
+            context['contacts_total'] = 0
+
+        last_link = self.request.session.pop('last_whatsapp_link', '')
+        if last_link:
+            self.request.session.modified = True
+        context['last_whatsapp_link'] = last_link
         return context
 
     def _get_processed_files(self, request):
@@ -548,6 +681,197 @@ class ProcessamentoView(LoginRequiredMixin, TemplateView):
     def _set_processed_files(self, request, files):
         request.session['processed_files'] = files
         request.session.modified = True
+
+    # --------------------------- VIP: Contatos + envio ----------------------
+    def _handle_save_contact(self, request, cliente):
+        if not cliente.is_VIP:
+            messages.error(request, 'Somente clientes VIP podem gerenciar contatos.')
+            return redirect('core:processamento')
+
+        contact_id = request.POST.get('contact_id')
+        nome = request.POST.get('contact_name', '').strip()
+        email = request.POST.get('contact_email', '').strip()
+        telefone = request.POST.get('contact_phone', '').strip()
+
+        if not nome:
+            messages.error(request, 'Informe o nome do contato.')
+            return redirect('core:processamento')
+
+        if not email and not telefone:
+            messages.error(request, 'Informe e-mail ou telefone para o contato.')
+            return redirect('core:processamento')
+
+        if contact_id:
+            contato = ClienteContato.objects.filter(pk=contact_id, cliente=cliente).first()
+            if not contato:
+                messages.error(request, 'Contato não encontrado.')
+                return redirect('core:processamento')
+        else:
+            contato = ClienteContato(cliente=cliente)
+
+        contato.nome = nome
+        contato.email = email or None
+        contato.telefone = telefone or None
+        try:
+            contato.save()
+        except Exception as exc:
+            logger.exception('Erro ao salvar contato VIP')
+            messages.error(request, f'Não foi possível salvar o contato: {exc}')
+            return redirect('core:processamento')
+
+        messages.success(request, 'Contato salvo com sucesso.')
+        return redirect('core:processamento')
+
+    def _handle_delete_contact(self, request, cliente):
+        if not cliente.is_VIP:
+            messages.error(request, 'Somente clientes VIP podem gerenciar contatos.')
+            return redirect('core:processamento')
+
+        contact_id = request.POST.get('contact_id')
+        contato = ClienteContato.objects.filter(pk=contact_id, cliente=cliente).first()
+        if not contato:
+            messages.error(request, 'Contato não encontrado.')
+            return redirect('core:processamento')
+
+        contato.delete()
+        messages.success(request, 'Contato removido.')
+        return redirect('core:processamento')
+
+    def _handle_send_invoice(self, request, cliente):
+        if not cliente.is_VIP:
+            messages.error(request, 'Somente clientes VIP podem enviar faturas automaticamente.')
+            return redirect('core:processamento')
+
+        contact_id = request.POST.get('contact_id')
+        contact_name_input = request.POST.get('contact_name', '').strip()
+        file_index_raw = request.POST.get('file_index', '0')
+        processed = self._get_processed_files(request)
+
+        if not processed:
+            messages.error(request, 'Não há fatura processada para enviar.')
+            return redirect('core:processamento')
+
+        try:
+            file_index = int(file_index_raw)
+        except ValueError:
+            file_index = 0
+
+        if file_index < 0 or file_index >= len(processed):
+            messages.error(request, 'Fatura selecionada é inválida.')
+            return redirect('core:processamento')
+
+        contato = None
+        if contact_id:
+            contato = ClienteContato.objects.filter(pk=contact_id, cliente=cliente).first()
+        if not contato and contact_name_input:
+            contatos_cache = list(ClienteContato.objects.filter(cliente=cliente))
+            contato = self._match_contact_by_name(contatos_cache, contact_name_input)
+        if not contato:
+            suggested_id = processed[file_index].get('suggested_contact_id')
+            if suggested_id:
+                contato = ClienteContato.objects.filter(pk=suggested_id, cliente=cliente).first()
+        if not contato:
+            messages.error(request, 'Contato não encontrado. Busque pelo nome ou cadastre antes de enviar.')
+            return redirect('core:processamento')
+
+        item = processed[file_index]
+        success = self._send_invoice_to_contact(contato, item, cliente)
+        if success:
+            request.session.modified = True
+        return redirect('core:processamento')
+
+    def _handle_send_all(self, request, cliente):
+        if not cliente.is_VIP:
+            messages.error(request, 'Somente clientes VIP podem enviar faturas automaticamente.')
+            return redirect('core:processamento')
+
+        processed = self._get_processed_files(request)
+        if not processed:
+            messages.error(request, 'Não há faturas processadas para enviar.')
+            return redirect('core:processamento')
+
+        contatos_cache = list(ClienteContato.objects.filter(cliente=cliente))
+        success = 0
+        skipped = 0
+        for item in processed:
+            contato = None
+            if item.get('suggested_contact_id'):
+                contato = next((c for c in contatos_cache if c.id == item['suggested_contact_id']), None)
+            if not contato:
+                contato = self._match_contact_by_name(contatos_cache, item.get('contact_name', ''))
+            if not contato:
+                skipped += 1
+                continue
+            if self._send_invoice_to_contact(contato, item, cliente):
+                success += 1
+
+        if success:
+            messages.success(request, f'{success} fatura(s) enviada(s) automaticamente.')
+        if skipped:
+            messages.info(request, f'{skipped} fatura(s) sem correspondência de contato. Use a busca para enviar manualmente.')
+        if not success and not skipped:
+            messages.info(request, 'Nenhuma fatura enviada.')
+        request.session.modified = True
+        return redirect('core:processamento')
+
+    def _match_contact_by_name(self, contatos_cache, nome_busca: str):
+        if not nome_busca:
+            return None
+        alvo = slugify(nome_busca).replace('-', '')
+        for c in contatos_cache:
+            ref = slugify(c.nome).replace('-', '')
+            if ref == alvo:
+                return c
+        return None
+
+    def _send_invoice_to_contact(self, contato: ClienteContato, item, cliente: Cliente):
+        file_name = item.get('name', 'fatura.html')
+        html_body = item.get('content', '')
+
+        email_sent = False
+        if contato.email:
+            try:
+                subject = f'Fatura | {cliente.nome}'
+                body_txt = (
+                    f'Olá {contato.nome},\n\n'
+                    f'Segue a fatura processada do cliente {cliente.nome}.\n'
+                    f'Este e-mail foi enviado automaticamente pelo painel VIP.'
+                )
+                email_message = EmailMessage(
+                    subject=subject,
+                    body=body_txt,
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    to=[contato.email],
+                )
+                email_message.attach(file_name, html_body, 'text/html')
+                email_message.send(fail_silently=False)
+                email_sent = True
+            except Exception as exc:
+                logger.exception('Erro ao enviar fatura por e-mail para contato %s', contato.id)
+                messages.error(self.request, f'Não foi possível enviar o e-mail para {contato.nome}: {exc}')
+                return False
+
+        whatsapp_link = ''
+        telefone_digits = re.sub(r'\D+', '', contato.telefone or '')
+        if telefone_digits:
+            mensagem = (
+                f'Olá {contato.nome}, segue a fatura do cliente {cliente.nome}. '
+                f'O arquivo foi enviado para seu e-mail: {contato.email or "sem e-mail cadastrado"}.'
+            )
+            whatsapp_link = f'https://wa.me/{telefone_digits}?text={quote(mensagem)}'
+
+        if whatsapp_link:
+            msg = 'Clique no botão do WhatsApp para completar o envio.'
+            if email_sent:
+                msg = 'Fatura enviada por e-mail. ' + msg
+            messages.success(self.request, msg)
+            self.request.session['last_whatsapp_link'] = whatsapp_link
+        elif email_sent:
+            messages.success(self.request, f'Fatura enviada por e-mail para {contato.nome}.')
+        else:
+            messages.info(self.request, 'Nenhum e-mail cadastrado para envio automático. Adicione um e-mail ou telefone.')
+
+        return True
 
 
 class LogoutView(View):

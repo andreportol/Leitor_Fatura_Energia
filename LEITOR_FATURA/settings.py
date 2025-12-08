@@ -93,32 +93,64 @@ WSGI_APPLICATION = 'LEITOR_FATURA.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASE_URL = env("DATABASE_URL")
+DATABASE_URL = (
+    env("DATABASE_URL")
+    or env("RAILWAY_DATABASE_URL")
+    or env("POSTGRES_URL")
+)
+FORCE_SQLITE = env_bool("USE_SQLITE", False)
 
-if not DATABASE_URL:
-    raise RuntimeError("DATABASE_URL não definida no arquivo .env!")
+# Permite usar SQLite (padrão) se nenhuma URL estiver definida ou se forçarmos via env.
+if FORCE_SQLITE or not DATABASE_URL:
+    sqlite_name = env('SQLITE_NAME', 'db.sqlite3')
+    sqlite_path = Path(sqlite_name)
+    if not sqlite_path.is_absolute():
+        sqlite_path = BASE_DIR / sqlite_path
 
-url = urlparse(DATABASE_URL)
-
-# Extração de parâmetros opcionais (?sslmode=require, etc.)
-query_options = parse_qs(url.query)
-options = {}
-if 'sslmode' in query_options:
-    options['sslmode'] = query_options['sslmode'][0]
-
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': url.path.lstrip('/'),
-        'USER': url.username,
-        'PASSWORD': url.password,
-        'HOST': url.hostname,
-        'PORT': url.port,
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': sqlite_path,
+        }
     }
-}
+else:
+    url = urlparse(DATABASE_URL)
 
-if options:
-    DATABASES['default']['OPTIONS'] = options
+    # Extração de parâmetros opcionais (?sslmode=require, etc.)
+    query_options = parse_qs(url.query)
+    options = {}
+    if 'sslmode' in query_options:
+        options['sslmode'] = query_options['sslmode'][0]
+
+    if url.scheme.startswith('sqlite'):
+        db_path = url.path or ''
+        if db_path in {'', '/'}:
+            db_path = BASE_DIR / 'db.sqlite3'
+        else:
+            db_path = Path(db_path.lstrip('/'))
+            if not db_path.is_absolute():
+                db_path = BASE_DIR / db_path
+
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.sqlite3',
+                'NAME': db_path,
+            }
+        }
+    else:
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.postgresql',
+                'NAME': url.path.lstrip('/'),
+                'USER': url.username,
+                'PASSWORD': url.password,
+                'HOST': url.hostname,
+                'PORT': url.port,
+            }
+        }
+
+        if options:
+            DATABASES['default']['OPTIONS'] = options
 
 
 # Password validation

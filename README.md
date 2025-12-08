@@ -7,6 +7,7 @@ Aplicação Django para cadastro de clientes, autenticação e painel onde o usu
 - Autenticação de clientes com proteção contra tentativas excessivas de login.
 - Painel do cliente para atualizar dados, senha, instruções (prompt) usadas na extração e visualizar créditos.
 - Interface administrativa (`/admin`) para gerenciar clientes, sincronizando credenciais automaticamente com o modelo de usuário do Django.
+- Clientes VIP podem cadastrar destinatários (nome, e-mail, telefone) e enviar faturas processadas automaticamente por e-mail, com link rápido para WhatsApp; arquivos são nomeados com o nome do cliente.
 - Pronta para servir arquivos estáticos com WhiteNoise e execução com Gunicorn (Procfile incluso).
 
 ## Requisitos
@@ -43,7 +44,10 @@ Aplicação Django para cadastro de clientes, autenticação e painel onde o usu
 
    # Banco de dados (use um, senão cai no SQLite padrão)
    # DATABASE_URL=postgres://usuario:senha@host:5432/nome_db
-   # ou RAILWAY_DATABASE_URL / POSTGRES_URL / POSTGRES_* variáveis
+   # RAILWAY_DATABASE_URL=postgres://usuario:senha@host:5432/nome_db
+   # POSTGRES_URL=postgres://usuario:senha@host:5432/nome_db
+   # USE_SQLITE=True              # força SQLite mesmo se URLs acima estiverem definidas
+   # SQLITE_NAME=db.sqlite3       # opcional: caminho/nome do arquivo SQLite
 
    EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
    EMAIL_HOST=smtp.gmail.com
@@ -75,8 +79,8 @@ Aplicação Django para cadastro de clientes, autenticação e painel onde o usu
    - Admin: `http://localhost:8000/admin/`
 
 ## Banco de dados
-- **Desenvolvimento:** SQLite em `db.sqlite3` é usado automaticamente se nenhuma variável de banco for configurada.
-- **Produção/PostgreSQL:** defina `DATABASE_URL` (ou `RAILWAY_DATABASE_URL`, `POSTGRES_URL`, ou o conjunto `POSTGRES_*`). SSL é respeitado se `sslmode` estiver na query string.
+- **Desenvolvimento:** SQLite em `db.sqlite3` é usado automaticamente se nenhuma URL de Postgres estiver configurada; defina `USE_SQLITE=True` para forçar o SQLite mesmo com variáveis de Postgres presentes.
+- **Produção/PostgreSQL:** defina `DATABASE_URL` (ou `RAILWAY_DATABASE_URL`/`POSTGRES_URL`). SSL é respeitado se `sslmode` estiver na query string.
 
 ## Arquivos estáticos
 - Assets estão em `app/core/static/`. Em produção, gere os arquivos coletados:

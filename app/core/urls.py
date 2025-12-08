@@ -1,5 +1,14 @@
 from django.urls import path
-from .views import CadastroView, ContactFormView, LoginView, LogoutView, ProcessamentoView, QuemSomosView, TemplateViewsIndex
+from .views import (
+    CadastroView,
+    ContactFormView,
+    ContatoCrudView,
+    LoginView,
+    LogoutView,
+    ProcessamentoView,
+    QuemSomosView,
+    TemplateViewsIndex,
+)
 
 
 app_name = 'core'
@@ -12,4 +21,5 @@ urlpatterns = [
     path('login/', LoginView.as_view(), name='login'),
     path('logout/', LogoutView.as_view(), name='logout'),
     path('processamento/', ProcessamentoView.as_view(), name='processamento'),
+    path('contatos/', ContatoCrudView.as_view(), name='contatos'),
 ]
