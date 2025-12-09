@@ -81,7 +81,7 @@ class ClienteAdmin(admin.ModelAdmin):
                 cliente=obj,
                 amount=delta,
                 balance_after=obj.saldo_atual,
-                description='Ajuste manual no admin',
+                description='Créditos adquiridos',
             )
 
     def _sync_user(self, cliente: Cliente):
