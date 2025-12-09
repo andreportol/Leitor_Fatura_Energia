@@ -120,7 +120,7 @@
                 });
             </script>
             <div class="row g-4 align-items-stretch">
-                <div class="col-lg-8">
+                <div class="col-lg-8 order-1 order-lg-1">
                     <div class="collapse mb-4" id="profileFormWrapper">
                         <div class="card shadow border-2 border-secondary-subtle rounded-4 h-100">
                             <div class="card-body p-4">
@@ -215,44 +215,8 @@
                     </div>
                 </div>
 
-                <div class="col-lg-4">
-                    <div class="card shadow border-2 border-secondary-subtle rounded-4 h-100">
-                        <div class="card-body p-4">
-                            <div class="d-flex align-items-center mb-3">
-                                <div class="me-3 text-primary"><i class="fas fa-wallet fa-lg"></i></div>
-                                <div>
-                                    <p class="text-uppercase text-primary fw-semibold mb-1 small">Créditos disponíveis</p>
-                                    <h3 class="mb-0">R$ {{ cliente.saldo_final|default:"0.00" }}</h3>
-                                </div>
-                            </div>
-                            <p class="text-muted small mb-3">Seu saldo é atualizado quando o administrador confirma o pagamento.</p>
-                            <button class="btn btn-success w-100 mb-2" data-bs-toggle="modal" data-bs-target="#pixModal">
-                                <i class="fas fa-qrcode me-2"></i> Adquirir créditos (PIX)
-                            </button>
-                            <a class="d-inline-flex align-items-center gap-2 small text-primary fw-semibold text-decoration-none" data-bs-toggle="collapse" href="#creditInfo" role="button" aria-expanded="false" aria-controls="creditInfo">
-                                <i class="fas fa-circle-info"></i> Como funcionam os créditos?
-                            </a>
-                            <div class="collapse mt-2" id="creditInfo">
-                                <div class="card card-body border-0 bg-light">
-                                    <ul class="mb-0 small text-muted ps-3">
-                                        <li>Processamento médio de R$ 1,00 por fatura.</li>
-                                        <li>Tempo aproximado: 10 segundos por fatura.</li>
-                                        <li>Recomendamos enviar no máximo 10 faturas por vez.</li>
-                                    </ul>
-                                </div>
-                            </div>
-                            <p class="small text-muted mb-0">Após o pagamento, o administrador lançará o crédito e o valor aparecerá aqui.</p>
-                            <button class="btn btn-outline-primary btn-sm mt-3" data-bs-toggle="modal" data-bs-target="#creditHistoryModal">
-                                <i class="fas fa-clock-rotate-left me-1"></i> Ver histórico de créditos
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="row g-4 mt-1">
                 {% if has_processed_files %}
-                <div class="col-12">
+                <div class="col-12 order-2 order-lg-3">
                     <div class="card shadow border-2 border-secondary-subtle rounded-4 h-100" id="processedCard">
                         <div class="card-body p-4">
                             <div class="d-flex align-items-center mb-3">
@@ -323,6 +287,42 @@
                 </div>
                 {% endif %}
 
+                <div class="col-lg-4 order-3 order-lg-2">
+                    <div class="card shadow border-2 border-secondary-subtle rounded-4 h-100">
+                        <div class="card-body p-4">
+                            <div class="d-flex align-items-center mb-3">
+                                <div class="me-3 text-primary"><i class="fas fa-wallet fa-lg"></i></div>
+                                <div>
+                                    <p class="text-uppercase text-primary fw-semibold mb-1 small">Créditos disponíveis</p>
+                                    <h3 class="mb-0">R$ {{ cliente.saldo_final|default:"0.00" }}</h3>
+                                </div>
+                            </div>
+                            <p class="text-muted small mb-3">Seu saldo é atualizado quando o administrador confirma o pagamento.</p>
+                            <button class="btn btn-success w-100 mb-2" data-bs-toggle="modal" data-bs-target="#pixModal">
+                                <i class="fas fa-qrcode me-2"></i> Adquirir créditos (PIX)
+                            </button>
+                            <a class="d-inline-flex align-items-center gap-2 small text-primary fw-semibold text-decoration-none" data-bs-toggle="collapse" href="#creditInfo" role="button" aria-expanded="false" aria-controls="creditInfo">
+                                <i class="fas fa-circle-info"></i> Como funcionam os créditos?
+                            </a>
+                            <div class="collapse mt-2" id="creditInfo">
+                                <div class="card card-body border-0 bg-light">
+                                    <ul class="mb-0 small text-muted ps-3">
+                                        <li>Processamento médio de R$ 1,00 por fatura.</li>
+                                        <li>Tempo aproximado: 10 segundos por fatura.</li>
+                                        <li>Recomendamos enviar no máximo 10 faturas por vez.</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <p class="small text-muted mb-0">Após o pagamento, o administrador lançará o crédito e o valor aparecerá aqui.</p>
+                            <button class="btn btn-outline-primary btn-sm mt-3" data-bs-toggle="modal" data-bs-target="#creditHistoryModal">
+                                <i class="fas fa-clock-rotate-left me-1"></i> Ver histórico de créditos
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-4 mt-1">
                 {% if not is_vip %}
                 <div class="col-12">
                     <div class="card shadow border-2 border-warning-subtle rounded-4 h-100">
@@ -465,7 +465,7 @@
                                     <th>Valor anterior</th>
                                     <th>Valor inserido</th>
                                     <th>Valor atual</th>
-                                    <th>Descrição</th>
+                                    <th class="d-none d-lg-table-cell">Descrição</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -477,7 +477,7 @@
                                     <td>{% if previous is not None %}R$ {{ previous|floatformat:2 }}{% else %}-{% endif %}</td>
                                     <td>R$ {{ entry.amount|floatformat:2 }}</td>
                                     <td>{% if entry.balance_after %}R$ {{ entry.balance_after|floatformat:2 }}{% else %}-{% endif %}</td>
-                                    <td class="text-muted">{{ entry.description|default:"" }}</td>
+                                    <td class="text-muted d-none d-lg-table-cell">{{ entry.description|default:"" }}</td>
                                 </tr>
                                 {% endwith %}
                                 {% endfor %}
@@ -488,6 +488,33 @@
                                 {% endif %}
                             </tbody>
                         </table>
+                        {% if credit_history_page %}
+                        <nav class="mt-3">
+                            <ul class="pagination pagination-sm mb-0">
+                                {% if credit_history_page.has_previous %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?history_page={{ credit_history_page.previous_page_number }}">&laquo;</a>
+                                    </li>
+                                {% else %}
+                                    <li class="page-item disabled"><span class="page-link">&laquo;</span></li>
+                                {% endif %}
+                                {% for num in credit_history_page.paginator.page_range %}
+                                    {% if credit_history_page.number == num %}
+                                        <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                                    {% else %}
+                                        <li class="page-item"><a class="page-link" href="?history_page={{ num }}">{{ num }}</a></li>
+                                    {% endif %}
+                                {% endfor %}
+                                {% if credit_history_page.has_next %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?history_page={{ credit_history_page.next_page_number }}">&raquo;</a>
+                                    </li>
+                                {% else %}
+                                    <li class="page-item disabled"><span class="page-link">&raquo;</span></li>
+                                {% endif %}
+                            </ul>
+                        </nav>
+                        {% endif %}
                     </div>
                 </div>
             </div>

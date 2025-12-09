@@ -761,15 +761,26 @@ class ProcessamentoView(LoginRequiredMixin, TemplateView):
             context['contatos'] = []
             context['contacts_total'] = 0
         if cliente:
+            history_qs = cliente.credit_history.all().order_by('-created_at')
+            paginator = Paginator(history_qs, 10)
+            page_number = self.request.GET.get('history_page') or 1
+            try:
+                history_page = paginator.page(page_number)
+            except (PageNotAnInteger, EmptyPage):
+                history_page = paginator.page(1)
+
             history = []
-            for entry in cliente.credit_history.all().order_by('-created_at')[:20]:
+            for entry in history_page.object_list:
                 previous = None
                 if entry.balance_after is not None and entry.amount is not None:
                     previous = Decimal(entry.balance_after) - Decimal(entry.amount)
                 history.append({'entry': entry, 'previous': previous})
+
             context['credit_history'] = history
+            context['credit_history_page'] = history_page
         else:
             context['credit_history'] = []
+            context['credit_history_page'] = None
 
         last_link = self.request.session.pop('last_whatsapp_link', '')
         if last_link:
