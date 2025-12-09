@@ -45,6 +45,11 @@ class TemplateViewsIndex(TemplateView):
         if whatsapp_number:
             whatsapp_url = f'https://wa.me/{whatsapp_number}?text=Ol%C3%A1%20ALP%20SISTEMAS'
         context['whatsapp_url'] = whatsapp_url
+        try:
+            from app.core.models import Cliente
+            context['vip_pending_count'] = Cliente.objects.filter(vip_request_pending=True).count()
+        except Exception:
+            context['vip_pending_count'] = 0
         return context
 
 

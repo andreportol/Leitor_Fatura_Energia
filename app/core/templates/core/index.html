@@ -60,6 +60,22 @@
         </div>
     </nav>
 
+    {% if request.user.is_superuser and vip_pending_count %}
+    <div class="container mt-3">
+        <div class="alert alert-warning d-flex align-items-center justify-content-between" role="alert">
+            <div class="d-flex align-items-center gap-2">
+                <i class="fas fa-crown text-warning"></i>
+                <div>
+                    <strong>{{ vip_pending_count }}</strong> {% if vip_pending_count == 1 %}cliente deseja{% else %}clientes desejam{% endif %} migrar para VIP.
+                </div>
+            </div>
+            <a class="btn btn-sm btn-warning text-dark" href="{% url 'admin:core_cliente_changelist' %}?vip_request_pending__exact=1">
+                Ver solicitações
+            </a>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Hero Section -->
     <section id="home" class="hero-section">
         <div class="container">
