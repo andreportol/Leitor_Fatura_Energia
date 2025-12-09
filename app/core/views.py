@@ -127,7 +127,7 @@ class CadastroView(View):
         login(request, user)
         request.session['cliente_id'] = cliente.id
         request.session['cliente_nome'] = cliente.nome
-        messages.success(request, 'Cadastro realizado com sucesso! Você já pode usar o painel de processamento.')
+        messages.success(request, 'Bem-vindo à área de processamento de faturas. Adquira créditos e processe suas faturas de forma rápida e automática.')
         return redirect('core:processamento')
 
 class ContatoCrudView(LoginRequiredMixin, TemplateView):
@@ -453,6 +453,8 @@ class ProcessamentoView(LoginRequiredMixin, TemplateView):
             return self._handle_send_invoice(request, cliente)
         if action == 'send_all':
             return self._handle_send_all(request, cliente)
+        if action == 'request_vip_upgrade':
+            return self._handle_request_vip_upgrade(request, cliente)
 
         messages.error(request, 'Ação inválida.')
         return redirect('core:processamento')
@@ -628,7 +630,7 @@ class ProcessamentoView(LoginRequiredMixin, TemplateView):
             messages.error(request, 'Defina a variável OPENAI_API_KEY para processar faturas.')
             return redirect('core:processamento')
 
-        credit_available = Decimal(cliente.valor_credito or 0)
+        credit_available = Decimal(getattr(cliente, 'saldo_atual', None) or 0)
         file_count = len(files)
         if credit_available < file_count:
             max_allowed = int(credit_available)
@@ -682,13 +684,14 @@ class ProcessamentoView(LoginRequiredMixin, TemplateView):
         # Debita os créditos apenas pelas faturas geradas
         try:
             debit = Decimal(len(processed))
-            cliente.valor_credito = (credit_available - debit)
-            cliente.save(update_fields=['valor_credito'])
+            cliente.saldo_atual = (credit_available - debit)
+            cliente.saldo_final = cliente.saldo_atual
+            cliente.valor_credito = Decimal('0')
+            cliente.save(update_fields=['saldo_atual', 'saldo_final', 'valor_credito'])
             CreditHistory.objects.create(
                 cliente=cliente,
-                kind='debit',
                 amount=-debit,
-                balance_after=cliente.valor_credito,
+                balance_after=cliente.saldo_atual,
                 description=f'Débito por processamento de {len(processed)} fatura(s)',
             )
         except Exception:
@@ -753,7 +756,13 @@ class ProcessamentoView(LoginRequiredMixin, TemplateView):
             context['contatos'] = []
             context['contacts_total'] = 0
         if cliente:
-            context['credit_history'] = list(cliente.credit_history.all().order_by('-created_at')[:20])
+            history = []
+            for entry in cliente.credit_history.all().order_by('-created_at')[:20]:
+                previous = None
+                if entry.balance_after is not None and entry.amount is not None:
+                    previous = Decimal(entry.balance_after) - Decimal(entry.amount)
+                history.append({'entry': entry, 'previous': previous})
+            context['credit_history'] = history
         else:
             context['credit_history'] = []
 
@@ -960,6 +969,24 @@ class ProcessamentoView(LoginRequiredMixin, TemplateView):
             messages.info(self.request, 'Nenhum e-mail cadastrado para envio automático. Adicione um e-mail ou telefone.')
 
         return True
+
+    def _handle_request_vip_upgrade(self, request, cliente):
+        if cliente.is_VIP:
+            messages.info(request, 'Você já é cliente VIP.')
+            return redirect('core:processamento')
+
+        if cliente.vip_request_pending:
+            messages.info(request, 'Sua solicitação de upgrade já foi recebida. Entraremos em contato em breve.')
+            return redirect('core:processamento')
+
+        cliente.vip_request_pending = True
+        cliente.save(update_fields=['vip_request_pending'])
+        messages.success(
+            request,
+            'Recebemos seu interesse em se tornar VIP! Em breve entraremos em contato para definir layout, data e forma de pagamento e demais detalhes.'
+        )
+        # Mantém um alerta simples para administradores: aparece no admin via campo "vip_request_pending".
+        return redirect('core:processamento')
 
 
 class LogoutView(View):

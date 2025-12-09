@@ -42,30 +42,47 @@ class ClienteAdminForm(forms.ModelForm):
 @admin.register(Cliente)
 class ClienteAdmin(admin.ModelAdmin):
     form = ClienteAdminForm
-    list_display = ('nome', 'email', 'telefone', 'estado', 'cidade', 'is_ativo', 'is_VIP', 'valor_credito')
+    list_display = ('nome', 'email', 'telefone', 'estado', 'cidade', 'is_ativo', 'is_VIP', 'vip_request_pending', 'saldo_atual')
     search_fields = ('nome', 'email')
-    list_filter = ('is_ativo', 'is_VIP', 'estado', 'cidade')
+    list_filter = ('is_ativo', 'is_VIP', 'vip_request_pending', 'estado', 'cidade')
     ordering = ('-created_at',)
-    readonly_fields = ('created_at', 'updated_at')
+    readonly_fields = ('created_at', 'updated_at', 'saldo_atual', 'saldo_final')
+    fieldsets = (
+        (None, {
+            'fields': ('nome', 'email', 'telefone', 'estado', 'cidade', 'is_ativo', 'is_VIP', 'vip_request_pending')
+        }),
+        ('Créditos', {
+            'fields': ('valor_credito', 'saldo_atual', 'saldo_final')
+        }),
+        ('Datas', {
+            'fields': ('created_at', 'updated_at')
+        }),
+    )
 
     def save_model(self, request, obj, form, change):
-        previous_credit = None
+        previous_saldo = None
         if change and obj.pk:
-            previous_credit = Cliente.objects.filter(pk=obj.pk).values_list('valor_credito', flat=True).first()
+            previous_saldo = Cliente.objects.filter(pk=obj.pk).values_list('saldo_atual', flat=True).first()
+
+        # valor_credito é tratado como crédito a adicionar ao saldo atual
+        delta = Decimal(obj.valor_credito or 0)
+        base_saldo = Decimal(previous_saldo or obj.saldo_atual or 0)
+        novo_saldo = base_saldo + delta
+        obj.saldo_atual = novo_saldo
+        obj.saldo_final = novo_saldo
+        # Zera o campo de entrada para evitar reaplicar o mesmo valor em um novo save
+        obj.valor_credito = Decimal('0')
 
         super().save_model(request, obj, form, change)
         self._sync_user(obj)
 
-        if previous_credit is not None:
-            delta = Decimal(obj.valor_credito) - Decimal(previous_credit)
-            if delta != 0:
-                CreditHistory.objects.create(
-                    cliente=obj,
-                    kind='credit' if delta > 0 else 'debit',
-                    amount=delta,
-                    balance_after=obj.valor_credito,
-                    description='Ajuste manual no admin',
-                )
+        if delta != 0:
+            CreditHistory.objects.create(
+                cliente=obj,
+                amount=delta,
+                balance_after=obj.saldo_atual,
+                description='Ajuste manual no admin',
+            )
 
     def _sync_user(self, cliente: Cliente):
         user = cliente.user
@@ -105,56 +122,42 @@ class ClienteContatoAdmin(admin.ModelAdmin):
 class CreditHistoryAdminForm(forms.ModelForm):
     class Meta:
         model = CreditHistory
-        fields = '__all__'
+        exclude = ('amount',)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['cliente'].label = 'Cliente'
-        self.fields['kind'].label = 'Tipo'
-        self.fields['amount'].label = 'Valor'
-        self.fields['balance_after'].label = 'Saldo após'
+        if 'balance_after' in self.fields:
+            self.fields['balance_after'].label = 'Saldo após'
         self.fields['description'].label = 'Descrição'
         # Sugestões iniciais: tipo crédito e descrição PIX
         if not self.instance.pk:
-            self.fields['kind'].initial = 'credit'
             self.fields['description'].initial = 'PIX'
 
     def clean(self):
         cleaned = super().clean()
+        if 'amount' not in self.fields:
+            return cleaned
         cliente = cleaned.get('cliente')
         amount = cleaned.get('amount') or Decimal('0')
-        kind = cleaned.get('kind')
         balance_after = cleaned.get('balance_after')
 
         if not cleaned.get('description'):
             cleaned['description'] = 'PIX'
 
-        if cliente and balance_after is None:
-            atual = Decimal(cliente.valor_credito or 0)
-            if kind == 'credit':
-                cleaned['balance_after'] = atual + amount
-            elif kind == 'debit':
-                cleaned['balance_after'] = atual - amount
+        if cliente:
+            previous = None
+            if self.instance and self.instance.pk and self.instance.balance_after is not None and self.instance.amount is not None:
+                previous = Decimal(self.instance.balance_after) - Decimal(self.instance.amount)
+            elif balance_after is not None and amount is not None:
+                previous = Decimal(balance_after) - Decimal(amount)
+            elif balance_after is None:
+                previous = Decimal(cliente.valor_credito or 0)
+
+            if previous is not None:
+                cleaned['balance_after'] = previous + amount
 
         return cleaned
-
-
-class KindListFilter(admin.SimpleListFilter):
-    title = 'Tipo'
-    parameter_name = 'kind'
-
-    def lookups(self, request, model_admin):
-        return (
-            ('credit', 'Crédito'),
-            ('debit', 'Débito'),
-        )
-
-    def queryset(self, request, queryset):
-        if self.value() == 'credit':
-            return queryset.filter(kind='credit')
-        if self.value() == 'debit':
-            return queryset.filter(kind='debit')
-        return queryset
 
 
 class CreatedAtFilter(admin.DateFieldListFilter):
@@ -164,7 +167,23 @@ class CreatedAtFilter(admin.DateFieldListFilter):
 @admin.register(CreditHistory)
 class CreditHistoryAdmin(admin.ModelAdmin):
     form = CreditHistoryAdminForm
-    list_display = ('cliente', 'kind', 'amount', 'balance_after', 'description', 'created_at')
-    list_filter = (KindListFilter, ('created_at', CreatedAtFilter), 'cliente')
+    list_display = ('cliente', 'previous_balance', 'balance_display', 'description', 'created_at_display')
+    list_display_links = ('cliente',)
+    list_filter = (('created_at', CreatedAtFilter), 'cliente')
     search_fields = ('cliente__nome', 'description')
-    readonly_fields = ('created_at', 'updated_at')
+    readonly_fields = ('created_at', 'updated_at', 'previous_balance', 'balance_after')
+    fields = ('cliente', 'previous_balance', 'balance_after', 'description', 'created_at', 'updated_at')
+
+    @admin.display(description='Valor anterior')
+    def previous_balance(self, obj):
+        if obj.balance_after is None or obj.amount is None:
+            return '-'
+        return Decimal(obj.balance_after) - Decimal(obj.amount)
+
+    @admin.display(description='Valor atual', ordering='balance_after')
+    def balance_display(self, obj):
+        return obj.balance_after
+
+    @admin.display(description='Criado em', ordering='created_at')
+    def created_at_display(self, obj):
+        return obj.created_at

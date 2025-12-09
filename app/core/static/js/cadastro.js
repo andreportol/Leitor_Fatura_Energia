@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const companyCity = document.getElementById('companyCity');
     const companyPassword = document.getElementById('companyPassword');
     const companyPasswordConfirm = document.getElementById('companyPasswordConfirm');
+    const companyPhone = document.getElementById('companyPhone');
     const togglePassword = document.getElementById('togglePassword');
     const togglePasswordConfirm = document.getElementById('togglePasswordConfirm');
 
@@ -122,6 +123,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 companyStatus.textContent = '';
                 companyStatus.className = '';
             }
+        });
+    }
+
+    function formatPhone(value) {
+        const digits = (value || '').replace(/\D/g, '').slice(0, 11);
+        if (!digits) return '';
+        if (digits.length <= 2) return `(${digits}`;
+        if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+        if (digits.length <= 10) return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+        return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+    }
+
+    if (companyPhone) {
+        companyPhone.value = formatPhone(companyPhone.value);
+        companyPhone.addEventListener('input', (e) => {
+            e.target.value = formatPhone(e.target.value);
         });
     }
 

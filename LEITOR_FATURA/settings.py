@@ -220,7 +220,8 @@ DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER)
 CONTACT_EMAIL = env('CONTACT_EMAIL', 'alpsistemascg@gmail.com')
 WHATSAPP_NUMBER = env('WHATSAPP_NUMBER', '')
 PIX_KEY = env('PIX_KEY', 'alpsistemascg@gmail.com')
-SESSION_IDLE_TIMEOUT = int(env('SESSION_IDLE_TIMEOUT', 900))  # 15 minutos de inatividade
+# Tempo de sessão: 15 minutos (renova a cada requisição)
+SESSION_IDLE_TIMEOUT = 15 * 60
 SESSION_COOKIE_AGE = SESSION_IDLE_TIMEOUT
 SESSION_SAVE_EVERY_REQUEST = True
 

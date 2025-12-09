@@ -24,7 +24,10 @@ class Cliente(Base):
     cidade = models.CharField(max_length=50, blank=True, null=True)
     is_ativo = models.BooleanField(default=True)
     is_VIP = models.BooleanField(default=False)
-    valor_credito = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    vip_request_pending = models.BooleanField(default=False)
+    saldo_atual = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, verbose_name='Saldo atual')
+    valor_credito = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, verbose_name='Valor do crédito')
+    saldo_final = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, verbose_name='Saldo final')
     password = models.CharField(max_length=128, default='123456')
     prompt_template = models.TextField(
         verbose_name='Diretrizes para IA', 
@@ -78,19 +81,13 @@ class ClienteContato(Base):
 
 
 class CreditHistory(Base):
-    KIND_CHOICES = (
-        ('credit', 'Crédito adicionado'),
-        ('debit', 'Crédito utilizado'),
-    )
-
     cliente = models.ForeignKey(
         Cliente,
         on_delete=models.CASCADE,
         related_name='credit_history',
     )
-    kind = models.CharField(max_length=10, choices=KIND_CHOICES)
-    amount = models.DecimalField(max_digits=10, decimal_places=2)
-    balance_after = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    amount = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='Valor inserido')
+    balance_after = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True, verbose_name='Saldo após')
     description = models.CharField(max_length=255, blank=True, null=True)
 
     class Meta:
@@ -100,4 +97,4 @@ class CreditHistory(Base):
 
     def __str__(self):
         sinal = '+' if self.amount and self.amount > 0 else ''
-        return f'{self.get_kind_display()} {sinal}{self.amount}'
+        return f'Movimentação {sinal}{self.amount}'

@@ -120,7 +120,7 @@
                                                 <div class="fw-semibold">{{ contato.nome }}</div>
                                                 <div class="text-muted small">
                                                     {% if contato.email %}<i class="fas fa-envelope me-1"></i>{{ contato.email }}{% else %}Sem e-mail{% endif %}
-                                                    {% if contato.telefone %} · <i class="fab fa-whatsapp me-1"></i>{{ contato.telefone }}{% endif %}
+                                                    {% if contato.telefone %} · <span class="text-nowrap"><i class="fab fa-whatsapp me-1"></i>{{ contato.telefone }}</span>{% endif %}
                                                 </div>
                                             </div>
                                             <div class="d-flex flex-column gap-2">
