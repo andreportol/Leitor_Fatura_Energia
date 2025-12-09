@@ -684,6 +684,7 @@ class ProcessamentoView(LoginRequiredMixin, TemplateView):
                 'status': 'processado',
                 'contact_name': nome_para_arquivo,
                 'suggested_contact_id': contact_match.id if contact_match else None,
+                'suggested_contact_name': contact_match.nome if contact_match else '',
             })
 
         # Debita os créditos apenas pelas faturas geradas
