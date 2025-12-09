@@ -1,0 +1,23 @@
+/* Ajustes visuais do painel admin (Jazzmin) */
+.login-logo img,
+.brand-image,
+.brand-link .brand-image {
+    height: 90px !important;
+    max-height: 90px !important;
+    width: auto !important;
+    max-width: 220px !important;
+    object-fit: contain;
+    border-radius: 10px;
+}
+
+/* Ajuste pós-login: logo no topo do admin (sidebar/header) */
+body:not(.login-page) .brand-link .brand-image {
+    height: 40px !important;
+    max-height: 40px !important;
+    width: auto !important;
+}
+
+body.login-page .card-primary.card-outline {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    border-color: #0d6efd;
+}

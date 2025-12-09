@@ -14,6 +14,7 @@ from django.contrib.auth import authenticate, get_user_model, login, logout, upd
 from django.contrib.auth.hashers import identify_hasher, make_password
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import IntegrityError, models
+from django.db import transaction
 from django.core.mail import EmailMessage
 from django.contrib.staticfiles.storage import staticfiles_storage
 from django.http import HttpResponse, JsonResponse
@@ -26,7 +27,8 @@ from django.views import View
 from django.views.generic import TemplateView
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 
-from app.core.models import Cliente, ClienteContato
+from app.core.models import Cliente, ClienteContato, CreditHistory
+from django.contrib.auth.password_validation import validate_password, password_validators_help_text_html
 from app.core.processamento import processar_pdf
 
 logger = logging.getLogger(__name__)
@@ -50,8 +52,83 @@ class QuemSomosView(TemplateView):
     template_name = 'core/quem_somos.html'
 
 
-class CadastroView(TemplateView):
+class CadastroView(View):
     template_name = 'core/cadastro.html'
+    user_model = get_user_model()
+
+    def get(self, request, *args, **kwargs):
+        return render(request, self.template_name, {
+            'form_data': {},
+            'password_help': password_validators_help_text_html(),
+        })
+
+    def post(self, request, *args, **kwargs):
+        name = request.POST.get('companyName', '').strip()
+        email = request.POST.get('companyEmail', '').strip()
+        password = request.POST.get('companyPassword', '').strip()
+        password_confirm = request.POST.get('companyPasswordConfirm', '').strip()
+        state = request.POST.get('companyState', '').strip()
+        city = request.POST.get('companyCity', '').strip()
+        phone = request.POST.get('companyPhone', '').strip()
+        # Valores padrão (não editáveis pelo formulário)
+        active_flag = True
+        credit_value = Decimal('0')
+
+        form_data = {
+            'companyName': name,
+            'companyEmail': email,
+            'companyState': state,
+            'companyCity': city,
+            'companyPhone': phone,
+            'companyActive': active_flag,
+            'companyCredit': credit_value,
+        }
+
+        if not name or not email or not phone or not password or not password_confirm or not state or not city:
+            messages.error(request, 'Preencha todos os campos obrigatórios.')
+            return render(request, self.template_name, {'form_data': form_data, 'password_help': password_validators_help_text_html()})
+
+        if password != password_confirm:
+            messages.error(request, 'As senhas não conferem.')
+            return render(request, self.template_name, {'form_data': form_data, 'password_help': password_validators_help_text_html()})
+
+        if Cliente.objects.filter(email=email).exists():
+            messages.error(request, 'Já existe um cadastro com este e-mail.')
+            return render(request, self.template_name, {'form_data': form_data, 'password_help': password_validators_help_text_html()})
+
+        try:
+            validate_password(password)
+        except Exception as exc:
+            messages.error(request, '; '.join(exc.messages) if hasattr(exc, 'messages') else 'Senha inválida.')
+            return render(request, self.template_name, {'form_data': form_data, 'password_help': password_validators_help_text_html()})
+
+        try:
+            with transaction.atomic():
+                user = self.user_model(username=email, email=email, first_name=name, is_active=active_flag)
+                user.set_password(password)
+                user.save()
+
+                cliente = Cliente.objects.create(
+                    user=user,
+                    nome=name,
+                    email=email,
+                    telefone=phone or None,
+                    estado=state,
+                    cidade=city,
+                    is_ativo=active_flag,
+                    is_VIP=False,
+                    valor_credito=credit_value,
+                    password=user.password,  # hashed
+                )
+        except IntegrityError:
+            messages.error(request, 'Não foi possível concluir o cadastro. Verifique os dados e tente novamente.')
+            return render(request, self.template_name, {'form_data': form_data, 'password_help': password_validators_help_text_html()})
+
+        login(request, user)
+        request.session['cliente_id'] = cliente.id
+        request.session['cliente_nome'] = cliente.nome
+        messages.success(request, 'Cadastro realizado com sucesso! Você já pode usar o painel de processamento.')
+        return redirect('core:processamento')
 
 class ContatoCrudView(LoginRequiredMixin, TemplateView):
     template_name = 'core/contatos.html'
@@ -607,6 +684,13 @@ class ProcessamentoView(LoginRequiredMixin, TemplateView):
             debit = Decimal(len(processed))
             cliente.valor_credito = (credit_available - debit)
             cliente.save(update_fields=['valor_credito'])
+            CreditHistory.objects.create(
+                cliente=cliente,
+                kind='debit',
+                amount=-debit,
+                balance_after=cliente.valor_credito,
+                description=f'Débito por processamento de {len(processed)} fatura(s)',
+            )
         except Exception:
             logger.exception('Falha ao debitar créditos do cliente %s', cliente.id)
 
@@ -668,6 +752,10 @@ class ProcessamentoView(LoginRequiredMixin, TemplateView):
         else:
             context['contatos'] = []
             context['contacts_total'] = 0
+        if cliente:
+            context['credit_history'] = list(cliente.credit_history.all().order_by('-created_at')[:20])
+        else:
+            context['credit_history'] = []
 
         last_link = self.request.session.pop('last_whatsapp_link', '')
         if last_link:

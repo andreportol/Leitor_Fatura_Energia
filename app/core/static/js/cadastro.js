@@ -75,7 +75,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 opt.textContent = uf;
                 companyState.appendChild(opt);
             });
-        populateCities('');
+        const preset = companyState.dataset.selectedState || '';
+        if (preset && stateCityMap[preset]) {
+            companyState.value = preset;
+            populateCities(preset);
+            const presetCity = companyCity ? (companyCity.dataset.selectedCity || '') : '';
+            if (companyCity && presetCity) {
+                companyCity.value = presetCity;
+            }
+        } else {
+            populateCities('');
+        }
     }
 
     if (companyState) {
@@ -102,16 +112,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (companyForm) {
         companyForm.addEventListener('submit', (e) => {
-            e.preventDefault();
             if (companyPassword && companyPasswordConfirm && companyPassword.value !== companyPasswordConfirm.value) {
+                e.preventDefault();
                 companyStatus.textContent = 'As senhas não conferem.';
                 companyStatus.className = 'text-center mt-3 text-danger';
                 return;
             }
-            companyStatus.textContent = 'Cadastro recebido! Em breve entraremos em contato para liberar o acesso.';
-            companyStatus.className = 'text-center mt-3 text-success';
-            companyForm.reset();
-            populateCities('');
+            if (companyStatus) {
+                companyStatus.textContent = '';
+                companyStatus.className = '';
+            }
         });
     }
 

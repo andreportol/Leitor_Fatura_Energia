@@ -56,7 +56,7 @@
                     <div class="col-12 mb-4">
                         <h1 class="section-title">Cadastro da Empresa</h1>
                         <p class="text-muted text-justify-indent mb-0">
-                            Preencha seus dados para solicitar acesso à área exclusiva de clientes. Após o envio, nossa equipe fará a validação e retornará com as credenciais de acesso.
+                            Faça seu cadastro e tenha acesso à área exclusiva de clientes.
                         </p>
                     </div>
                 </div>
@@ -64,14 +64,24 @@
                     <div class="col-lg-8">
                         <div class="card shadow-sm">
                             <div class="card-body">
-                                <form id="companyForm">
+                                {% if messages %}
+                                    {% for message in messages %}
+                                        <div class="alert alert-{{ message.tags|default:'info' }} mb-3" role="alert">{{ message }}</div>
+                                    {% endfor %}
+                                {% endif %}
+                                <form id="companyForm" method="post" action="{% url 'core:cadastro' %}">
+                                    {% csrf_token %}
                                     <div class="mb-3">
                                         <label for="companyName" class="form-label">Nome da empresa</label>
-                                        <input type="text" class="form-control" id="companyName" name="companyName" required autofocus>
+                                        <input type="text" class="form-control" id="companyName" name="companyName" value="{{ form_data.companyName|default:'' }}" required autofocus>
                                     </div>
                                     <div class="mb-3">
                                         <label for="companyEmail" class="form-label">E-mail para contato</label>
-                                        <input type="email" class="form-control" id="companyEmail" name="companyEmail" required>
+                                        <input type="email" class="form-control" id="companyEmail" name="companyEmail" value="{{ form_data.companyEmail|default:'' }}" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="companyPhone" class="form-label">Telefone (WhatsApp)</label>
+                                        <input type="tel" class="form-control" id="companyPhone" name="companyPhone" value="{{ form_data.companyPhone|default:'' }}" placeholder="(67) 99999-9999" required>
                                     </div>
                                     <div class="mb-3">
                                         <label for="companyPassword" class="form-label">Senha para cadastro</label>
@@ -79,6 +89,9 @@
                                             <input type="password" class="form-control" id="companyPassword" name="companyPassword" minlength="6" required>
                                             <button class="btn btn-outline-secondary" type="button" id="togglePassword"><i class="fas fa-eye"></i></button>
                                         </div>
+                                        {% if password_help %}
+                                        <small class="form-text text-muted d-block mt-1">{{ password_help|safe }}</small>
+                                        {% endif %}
                                     </div>
                                     <div class="mb-3">
                                         <label for="companyPasswordConfirm" class="form-label">Confirmar senha</label>
@@ -90,15 +103,15 @@
                                     <div class="row">
                                         <div class="col-md-6 mb-3">
                                             <label for="companyState" class="form-label">Estado</label>
-                                            <select id="companyState" name="companyState" class="form-select" required></select>
+                                            <select id="companyState" name="companyState" class="form-select" required data-selected-state="{{ form_data.companyState|default:'' }}"></select>
                                         </div>
                                         <div class="col-md-6 mb-3">
                                             <label for="companyCity" class="form-label">Cidade</label>
-                                            <select id="companyCity" name="companyCity" class="form-select" required></select>
+                                            <select id="companyCity" name="companyCity" class="form-select" required data-selected-city="{{ form_data.companyCity|default:'' }}"></select>
                                         </div>
                                     </div>
                                     <div class="text-center text-sm-end">
-                                        <button type="submit" class="btn btn-primary btn-custom">Enviar cadastro</button>
+                                        <button type="submit" class="btn btn-primary btn-custom">Cadastrar</button>
                                     </div>
                                     <div id="companyStatus" class="text-center mt-3"></div>
                                 </form>
@@ -127,6 +140,8 @@
             </div>
         </div>
     </footer>
+
+    {% include 'core/partials/admin_shortcut.html' %}
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
     <script src="{% static 'js/cadastro.js' %}"></script>

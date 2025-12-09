@@ -75,3 +75,29 @@ class ClienteContato(Base):
         verbose_name_plural = 'Contatos'
         ordering = ['nome']
         unique_together = (('cliente', 'email'),)
+
+
+class CreditHistory(Base):
+    KIND_CHOICES = (
+        ('credit', 'Crédito adicionado'),
+        ('debit', 'Crédito utilizado'),
+    )
+
+    cliente = models.ForeignKey(
+        Cliente,
+        on_delete=models.CASCADE,
+        related_name='credit_history',
+    )
+    kind = models.CharField(max_length=10, choices=KIND_CHOICES)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    balance_after = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    description = models.CharField(max_length=255, blank=True, null=True)
+
+    class Meta:
+        verbose_name = 'Histórico de Crédito'
+        verbose_name_plural = 'Históricos de Créditos'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        sinal = '+' if self.amount and self.amount > 0 else ''
+        return f'{self.get_kind_display()} {sinal}{self.amount}'

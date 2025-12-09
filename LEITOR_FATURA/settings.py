@@ -229,6 +229,10 @@ JAZZMIN_SETTINGS = {
     "site_title": "ALP SISTEMAS",
     "site_header": "ALP SISTEMAS",
     "welcome_sign": "Bem-vindo ao painel administrativo",
+    "site_brand": "ALP SISTEMAS",
+    "site_logo": "img/logomarca.png",
+    "login_logo": "img/logomarca.png",
+    "custom_css": "css/admin_custom.css",
     "topmenu_links": [
         {"name": "Início", "url": "core:index"},
     ],
