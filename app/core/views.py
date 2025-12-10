@@ -785,6 +785,10 @@ class ProcessamentoView(LoginRequiredMixin, TemplateView):
                     match = next((c for c in contatos_lista if c.id == cid), None)
                     if match:
                         resolved_id = match.id
+                        item['resolved_contact_phone'] = match.telefone
+                        phone_digits = re.sub(r'\D+', '', match.telefone or '')
+                        if phone_digits:
+                            item['resolved_whatsapp_link'] = f'https://wa.me/{phone_digits}'
                         break
 
                 if not resolved_id:
@@ -798,10 +802,16 @@ class ProcessamentoView(LoginRequiredMixin, TemplateView):
                         match = self._match_contact_by_name(contatos_lista, candidate)
                         if match:
                             resolved_id = match.id
+                            item['resolved_contact_phone'] = match.telefone
+                            phone_digits = re.sub(r'\D+', '', match.telefone or '')
+                            if phone_digits:
+                                item['resolved_whatsapp_link'] = f'https://wa.me/{phone_digits}'
                             break
 
                 item['resolved_contact_id'] = resolved_id
                 item['has_contact'] = bool(resolved_id)
+                item.setdefault('resolved_contact_phone', '')
+                item.setdefault('resolved_whatsapp_link', '')
             context['processed_files'] = processed
         if cliente:
             history_qs = cliente.credit_history.all().order_by('-created_at')
@@ -902,9 +912,9 @@ class ProcessamentoView(LoginRequiredMixin, TemplateView):
             messages.error(request, msg)
             return redirect('core:processamento')
 
-        def ajax_success(msg='Fatura enviada.'):
+        def ajax_success(msg='Fatura enviada.', whatsapp_link=''):
             if is_ajax:
-                return JsonResponse({'success': True, 'message': msg})
+                return JsonResponse({'success': True, 'message': msg, 'whatsapp_link': whatsapp_link or ''})
             messages.success(request, msg)
             return redirect('core:processamento')
 
@@ -963,10 +973,10 @@ class ProcessamentoView(LoginRequiredMixin, TemplateView):
             return ajax_error('Contato não encontrado. Busque pelo nome ou cadastre antes de enviar.')
 
         item = processed[file_index]
-        success = self._send_invoice_to_contact(contato, item, cliente)
+        success, whatsapp_link = self._send_invoice_to_contact(contato, item, cliente)
         if success:
             request.session.modified = True
-            return ajax_success('Fatura enviada para o contato.')
+            return ajax_success('Fatura enviada para o contato.', whatsapp_link=whatsapp_link)
         return ajax_error('Não foi possível enviar a fatura. Verifique o contato.')
 
     def _handle_send_all(self, request, cliente):
@@ -991,7 +1001,8 @@ class ProcessamentoView(LoginRequiredMixin, TemplateView):
             if not contato:
                 skipped += 1
                 continue
-            if self._send_invoice_to_contact(contato, item, cliente):
+            sent, _ = self._send_invoice_to_contact(contato, item, cliente)
+            if sent:
                 success += 1
 
         if success:
@@ -1025,6 +1036,7 @@ class ProcessamentoView(LoginRequiredMixin, TemplateView):
         html_body = item.get('content', '')
 
         email_sent = False
+        whatsapp_link = ''
         if contato.email:
             try:
                 subject = f'Fatura | {cliente.nome}'
@@ -1045,9 +1057,8 @@ class ProcessamentoView(LoginRequiredMixin, TemplateView):
             except Exception as exc:
                 logger.exception('Erro ao enviar fatura por e-mail para contato %s', contato.id)
                 messages.error(self.request, f'Não foi possível enviar o e-mail para {contato.nome}: {exc}')
-                return False
+                return False, ''
 
-        whatsapp_link = ''
         telefone_digits = re.sub(r'\D+', '', contato.telefone or '')
         if telefone_digits:
             mensagem = (
@@ -1067,7 +1078,7 @@ class ProcessamentoView(LoginRequiredMixin, TemplateView):
         else:
             messages.info(self.request, 'Nenhum e-mail cadastrado para envio automático. Adicione um e-mail ou telefone.')
 
-        return True
+        return True, whatsapp_link
 
     def _handle_request_vip_upgrade(self, request, cliente):
         if cliente.is_VIP:

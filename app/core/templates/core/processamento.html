@@ -152,6 +152,26 @@
                 </div>
             </div>
             {% endif %}
+            {% if last_whatsapp_link %}
+            <div class="row justify-content-center mb-3">
+                <div class="col-lg-10">
+                    <div class="alert alert-success d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2 mb-2" role="alert">
+                        <div class="d-flex align-items-center gap-2">
+                            <i class="fab fa-whatsapp text-success"></i>
+                            <span class="fw-semibold">Abra o WhatsApp para concluir o envio.</span>
+                        </div>
+                        <div class="d-flex flex-wrap gap-2">
+                            <a class="btn btn-success btn-sm text-white" href="{{ last_whatsapp_link }}" target="_blank" rel="noopener">
+                                <i class="fab fa-whatsapp me-1"></i> Abrir conversa
+                            </a>
+                            <button class="btn btn-outline-success btn-sm" type="button" data-copy-whatsapp="{{ last_whatsapp_link }}">
+                                Copiar link
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
             <script>
                 document.addEventListener('DOMContentLoaded', function () {
                     var alerts = document.querySelectorAll('.alert');
@@ -321,7 +341,7 @@
                                     {% csrf_token %}
                                     <input type="hidden" name="action" value="send_all">
                                     <button class="btn btn-primary btn-sm text-white" type="submit">
-                                        <i class="fas fa-bolt me-2"></i>Enviar todas (auto por nome)
+                                        <i class="fas fa-bolt me-2"></i>Enviar todas as Faturas
                                     </button>
                                 </form>
                                 {% endif %}
@@ -1047,6 +1067,23 @@
                         }
                         alert(err.message || 'Contato não encontrado.');
                     });
+                });
+            });
+        })();
+        (function() {
+            const copyBtns = document.querySelectorAll('[data-copy-whatsapp]');
+            if (!copyBtns.length) return;
+            copyBtns.forEach((btn) => {
+                btn.addEventListener('click', async () => {
+                    const link = btn.getAttribute('data-copy-whatsapp');
+                    if (!link) return;
+                    try {
+                        await navigator.clipboard.writeText(link);
+                        btn.textContent = 'Copiado!';
+                        setTimeout(() => btn.textContent = 'Copiar link', 1500);
+                    } catch (err) {
+                        alert('Não foi possível copiar. Copie manualmente: ' + link);
+                    }
                 });
             });
         })();
