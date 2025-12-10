@@ -55,6 +55,9 @@
                 justify-self: end;
             }
         }
+        .border-gray {
+            border: 2px solid #ced4da !important;
+        }
     </style>
 </head>
 <body class="bg-light">
@@ -122,7 +125,7 @@
             <div class="row g-4 align-items-stretch">
                 <div class="col-lg-8 order-1 order-lg-1">
                     <div class="collapse mb-4" id="profileFormWrapper">
-                        <div class="card shadow border-2 border-secondary-subtle rounded-4 h-100">
+                        <div class="card shadow border-2 border-gray rounded-4 h-100">
                             <div class="card-body p-4">
                                 <div class="d-flex align-items-center mb-4">
                                     <div class="me-3 text-primary"><i class="fas fa-user-gear fa-2x"></i></div>
@@ -175,7 +178,7 @@
                         </div>
                     </div>
 
-                    <div class="card shadow border-2 border-secondary-subtle rounded-4 h-100">
+                    <div class="card shadow border-2 border-gray rounded-4 h-100">
                         <div class="card-body p-4">
                             <div class="d-flex align-items-center mb-3">
                                 <div class="me-3 text-primary"><i class="fas fa-file-upload fa-lg"></i></div>
@@ -217,7 +220,7 @@
 
                 {% if has_processed_files %}
                 <div class="col-12 order-2 order-lg-3">
-                    <div class="card shadow border-2 border-secondary-subtle rounded-4 h-100" id="processedCard">
+                    <div class="card shadow border-2 border-gray rounded-4 h-100" id="processedCard">
                         <div class="card-body p-4">
                             <div class="d-flex align-items-center mb-3">
                                 <div class="me-3 text-success"><i class="fas fa-download fa-lg"></i></div>
@@ -295,7 +298,7 @@
             {% endif %}
 
                 <div class="col-lg-4 order-3 order-lg-2">
-                    <div class="card shadow border-2 border-secondary-subtle rounded-4 h-100">
+                    <div class="card shadow border-2 border-gray rounded-4 h-100">
                         <div class="card-body p-4">
                             <div class="d-flex align-items-center mb-3">
                                 <div class="me-3 text-primary"><i class="fas fa-wallet fa-lg"></i></div>
@@ -332,7 +335,7 @@
             <div class="row g-4 mt-1">
                 {% if not is_vip %}
                 <div class="col-12">
-                    <div class="card shadow border-2 border-warning-subtle rounded-4 h-100">
+                    <div class="card shadow border-2 border-gray rounded-4 h-100">
                         <div class="card-body p-4">
                             <div class="d-flex align-items-center mb-3">
                                 <div class="me-3 text-warning"><i class="fas fa-crown fa-lg"></i></div>
@@ -372,7 +375,7 @@
                             <div class="d-flex align-items-center mb-3">
                                 <div class="me-3 text-primary"><i class="fas fa-crown fa-lg"></i></div>
                                 <div>
-                                    <p class="text-uppercase text-primary fw-semibold mb-1 small">Cliente VIP</p>
+                                    <p class="text-uppercase text-primary fw-semibold mb-1 small">Cliente VIP - Área exclusiva</p>
                                     <h2 class="h5 mb-0">Envio automático de faturas</h2>
                                 </div>
                             </div>
@@ -385,7 +388,7 @@
                             <form method="post" action="{% url 'core:processamento' %}" class="row g-3 align-items-end">
                                 {% csrf_token %}
                                 <input type="hidden" name="action" value="save_contact">
-                                <div class="col-md-5 position-relative">
+                                <div class="col-12 col-lg-5 position-relative">
                                     <label class="form-label">Nome do destinatário</label>
                                     <input type="text" class="form-control" id="vipContactName" name="contact_name" placeholder="Digite para buscar..." autocomplete="off">
                                     <div id="contactSearchResults" class="list-group position-absolute w-100 shadow-sm d-none contact-search-results"></div>
@@ -394,15 +397,15 @@
                                         <!-- Novos inputs serão adicionados aqui via JS -->
                                     </div>
                                 </div>
-                                <div class="col-md-4">
+                                <div class="col-12 col-lg-4">
                                     <label class="form-label">E-mail</label>
                                     <input type="email" name="contact_email" id="vipContactEmail" class="form-control" placeholder="contato@email.com">
                                 </div>
-                                <div class="col-md-2">
+                                <div class="col-12 col-lg-2">
                                     <label class="form-label">Telefone (WhatsApp)</label>
                                     <input type="text" name="contact_phone" id="vipContactPhone" class="form-control" placeholder="(67) 99999-9999">
                                 </div>
-                                <div class="col-md-3 d-flex align-items-end gap-2">
+                                <div class="col-12 col-lg-3 d-flex align-items-end gap-2 justify-content-end ms-lg-auto">
                                     <button type="button" class="btn btn-outline-secondary" id="vipAddMore">Adicionar outro</button>
                                     <button type="button" class="btn btn-outline-danger text-nowrap" id="vipRemoveFromCard">
                                         <i class="fas fa-trash"></i>
@@ -417,7 +420,7 @@
                 {% endif %}
 
                 <div class="col-12">
-                    <div class="card shadow border-2 border-secondary-subtle rounded-4 h-100">
+                    <div class="card shadow border-2 border-gray rounded-4 h-100">
                         <div class="card-body p-4">
                             <div class="d-flex align-items-center mb-3">
                                 <div class="me-3 text-primary"><i class="fas fa-robot fa-lg"></i></div>
