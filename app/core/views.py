@@ -721,8 +721,6 @@ class ProcessamentoView(LoginRequiredMixin, TemplateView):
             return redirect('core:processamento')
 
         item = processed[idx]
-        # Limpa após o download para ocultar o card
-        self._set_processed_files(request, [])
         response = HttpResponse(item.get('content', ''), content_type='text/html')
         response['Content-Disposition'] = f'attachment; filename="{item.get("name", "fatura.html")}"'
         return response
