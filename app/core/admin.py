@@ -51,6 +51,10 @@ class ClienteAdmin(admin.ModelAdmin):
         (None, {
             'fields': ('nome', 'email', 'telefone', 'estado', 'cidade', 'is_ativo', 'is_VIP', 'vip_request_pending')
         }),
+        ('Diretrizes para IA', {
+            'fields': ('prompt_template',),
+            'classes': ('collapse',),
+        }),
         ('Créditos', {
             'fields': ('valor_credito', 'saldo_atual', 'saldo_final')
         }),

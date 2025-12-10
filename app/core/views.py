@@ -1,7 +1,9 @@
+import base64
 import io
 import logging
 import os
 import re
+import socket
 import zipfile
 from datetime import datetime, timedelta, timezone as dt_timezone
 from decimal import Decimal
@@ -15,7 +17,7 @@ from django.contrib.auth.hashers import identify_hasher, make_password
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import IntegrityError, models
 from django.db import transaction
-from django.core.mail import EmailMessage
+from django.core.mail import EmailMessage, get_connection
 from django.contrib.staticfiles.storage import staticfiles_storage
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
@@ -655,7 +657,8 @@ class ProcessamentoView(LoginRequiredMixin, TemplateView):
         outputs = []
         for f in files:
             try:
-                parsed = processar_pdf(f)
+                prompt_extra = cliente.prompt_template or ""
+                parsed = processar_pdf(f, prompt_extra=prompt_extra)
                 context = self._build_invoice_context(parsed, cliente)
                 html = render_to_string('core/modelo_fatura.html', context)
                 nome_para_arquivo = context.get('cliente', {}).get('nome') or getattr(cliente, 'nome', '')
@@ -1037,27 +1040,63 @@ class ProcessamentoView(LoginRequiredMixin, TemplateView):
 
         email_sent = False
         whatsapp_link = ''
+        subject = f'Fatura | {cliente.nome}'
+        body_txt = (
+            f'Olá {contato.nome},\n\n'
+            f'Segue a fatura processada do cliente {cliente.nome}.\n'
+            f'Este e-mail foi enviado automaticamente pelo painel VIP.'
+        )
         if contato.email:
             try:
-                subject = f'Fatura | {cliente.nome}'
-                body_txt = (
-                    f'Olá {contato.nome},\n\n'
-                    f'Segue a fatura processada do cliente {cliente.nome}.\n'
-                    f'Este e-mail foi enviado automaticamente pelo painel VIP.'
-                )
+                connection = get_connection(timeout=5)
                 email_message = EmailMessage(
                     subject=subject,
                     body=body_txt,
                     from_email=settings.DEFAULT_FROM_EMAIL,
                     to=[contato.email],
+                    connection=connection,
                 )
                 email_message.attach(file_name, html_body, 'text/html')
                 email_message.send(fail_silently=False)
                 email_sent = True
-            except Exception as exc:
+            except (socket.gaierror, socket.timeout, OSError) as exc:
+                # SMTP indisponível: não bloquear o fluxo, apenas avisar
+                logger.warning('SMTP indisponível para contato %s: %s', contato.id, exc)
+                messages.warning(self.request, 'Servidor de e-mail indisponível. Conclua pelo WhatsApp.')
+            except BaseException as exc:
+                # Captura SystemExit (gunicorn aborta worker) e demais erros de SMTP, mas não deixa pendurar
                 logger.exception('Erro ao enviar fatura por e-mail para contato %s', contato.id)
                 messages.error(self.request, f'Não foi possível enviar o e-mail para {contato.nome}: {exc}')
-                return False, ''
+            if not email_sent:
+                api_key = os.getenv('SENDGRID_API_KEY', '').strip()
+                from_email = os.getenv('SENDGRID_FROM_EMAIL', '').strip() or settings.DEFAULT_FROM_EMAIL
+                if api_key:
+                    try:
+                        from sendgrid import SendGridAPIClient  # type: ignore
+                        from sendgrid.helpers.mail import Mail, Attachment, FileContent, FileName, FileType, Disposition  # type: ignore
+
+                        message = Mail(
+                            from_email=from_email,
+                            to_emails=contato.email,
+                            subject=subject,
+                            html_content=body_txt.replace('\n', '<br>'),
+                        )
+                        encoded_file = base64.b64encode(html_body.encode('utf-8')).decode()
+                        attachment = Attachment(
+                            FileContent(encoded_file),
+                            FileName(file_name),
+                            FileType('text/html'),
+                            Disposition('attachment'),
+                        )
+                        message.attachment = attachment
+                        sg = SendGridAPIClient(api_key)
+                        sg.send(message)
+                        email_sent = True
+                    except ImportError:
+                        logger.warning('SendGrid não instalado; adicione sendgrid ao requirements.')
+                    except Exception as exc:
+                        logger.exception('Erro ao enviar fatura via SendGrid para contato %s', contato.id)
+                        messages.warning(self.request, f'Não foi possível enviar via SendGrid: {exc}')
 
         telefone_digits = re.sub(r'\D+', '', contato.telefone or '')
         if telefone_digits:
@@ -1076,7 +1115,7 @@ class ProcessamentoView(LoginRequiredMixin, TemplateView):
         elif email_sent:
             messages.success(self.request, f'Fatura enviada por e-mail para {contato.nome}.')
         else:
-            messages.info(self.request, 'Nenhum e-mail cadastrado para envio automático. Adicione um e-mail ou telefone.')
+            messages.info(self.request, 'Nenhum e-mail cadastrado ou servidor indisponível. Adicione um e-mail ou telefone.')
 
         return True, whatsapp_link
 

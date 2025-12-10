@@ -147,7 +147,7 @@
             <div class="row justify-content-center mb-3">
                 <div class="col-lg-10">
                     {% for message in messages %}
-                        <div class="alert alert-{% if 'error' in message.tags %}danger{% else %}{{ message.tags|default:'info' }}{% endif %} mb-2" role="alert">{{ message }}</div>
+                        <div class="alert alert-{% if 'error' in message.tags %}danger{% else %}{{ message.tags|default:'info' }}{% endif %} mb-2 js-auto-dismiss" role="alert">{{ message }}</div>
                     {% endfor %}
                 </div>
             </div>
@@ -155,7 +155,7 @@
             {% if last_whatsapp_link %}
             <div class="row justify-content-center mb-3">
                 <div class="col-lg-10">
-                    <div class="alert alert-success d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2 mb-2" role="alert">
+                    <div class="alert alert-success d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2 mb-2 js-auto-dismiss" role="alert">
                         <div class="d-flex align-items-center gap-2">
                             <i class="fab fa-whatsapp text-success"></i>
                             <span class="fw-semibold">Abra o WhatsApp para concluir o envio.</span>
@@ -174,7 +174,7 @@
             {% endif %}
             <script>
                 document.addEventListener('DOMContentLoaded', function () {
-                    var alerts = document.querySelectorAll('.alert');
+                    var alerts = document.querySelectorAll('.js-auto-dismiss');
                     alerts.forEach(function (alert) {
                         setTimeout(function () {
                             alert.classList.add('d-none');
@@ -498,20 +498,40 @@
                                     <label class="form-label">Instruções</label>
                                     <textarea class="form-control" name="prompt_template" rows="6" placeholder="Descreva o que a IA deve extrair ou como formatar o resultado.">{{ cliente.prompt_template }}</textarea>
                                 </div>
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="collapse" data-bs-target="#promptHelp" aria-expanded="false" aria-controls="promptHelp">
-                                        <i class="fas fa-circle-info me-2"></i>Como funciona
-                                    </button>
-                                    <button type="submit" class="btn btn-primary">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="collapse" data-bs-target="#promptHelp" aria-expanded="false" aria-controls="promptHelp" id="promptHelpToggle">
+                                    <i class="fas fa-circle-info me-2"></i><span data-label-default>Como funciona</span><span class="d-none" data-label-alt>Esconder</span>
+                                </button>
+                                <button type="submit" class="btn btn-primary">
                                         <i class="fas fa-save me-2"></i>Salvar diretrizes
                                     </button>
                                 </div>
                             </form>
                             <div class="collapse mt-3" id="promptHelp">
                                 <div class="alert alert-info mb-0">
-                                    <p class="mb-1"><strong>O que é?</strong> Texto usado pela IA para seguir regras de extração e formatação.</p>
-                                    <p class="mb-1"><strong>Dicas:</strong> Liste campos desejados, unidades e exemplos de saída. Mantenha frases curtas e claras.</p>
-                                    <p class="mb-0"><strong>Boa prática:</strong> Use marcadores (•) ou tópicos para cada regra.</p>
+                                    <p class="mb-2"><strong>O que é?</strong></p>
+                                    <p class="mb-2">Texto utilizado pela inteligência artificial para seguir regras de extração e formatação.</p>
+                                    <p class="mb-2"><strong>Campos padrão lidos pela IA</strong></p>
+                                    <p class="mb-2">A IA extrai automaticamente os seguintes campos:</p>
+                                    <ul class="mb-2 ps-3">
+                                        <li>Nome do Cliente</li>
+                                        <li>Endereço</li>
+                                        <li>Código do Cliente/UC</li>
+                                        <li>Data de Emissão</li>
+                                        <li>Data de Vencimento</li>
+                                        <li>Leitura Anterior</li>
+                                        <li>Leitura Atual</li>
+                                        <li>Consumo em kWh</li>
+                                        <li>Preço Unitário</li>
+                                        <li>Energia Atv Injetada em kWh</li>
+                                        <li>Energia Atv Injetada em R$</li>
+                                        <li>Economia</li>
+                                        <li>Valor a Pagar</li>
+                                        <li>Mês Referência</li>
+                                        <li>Saldo Acumulado</li>
+                                        <li>Histórico de Consumo (lista de objetos com mês e consumo, em ordem cronológica se possível)</li>
+                                    </ul>
+                                    <p class="mb-0"><strong>Dicas:</strong> Deixe claro formato/ordem dos campos, unidades e exemplos de saída. Use marcadores para cada regra.</p>
                                 </div>
                             </div>
                         </div>
@@ -966,6 +986,25 @@
                     }
                 });
             });
+        })();
+        (function() {
+            const toggle = document.getElementById('promptHelpToggle');
+            const target = document.getElementById('promptHelp');
+            if (!toggle || !target) return;
+
+            const defaultLabel = toggle.querySelector('[data-label-default]');
+            const altLabel = toggle.querySelector('[data-label-alt]');
+
+            const update = () => {
+                const isOpen = target.classList.contains('show');
+                if (defaultLabel && altLabel) {
+                    defaultLabel.classList.toggle('d-none', isOpen);
+                    altLabel.classList.toggle('d-none', !isOpen);
+                }
+            };
+
+            target.addEventListener('shown.bs.collapse', update);
+            target.addEventListener('hidden.bs.collapse', update);
         })();
         (function() {
             document.querySelectorAll('[data-download-btn]').forEach(function (btn) {

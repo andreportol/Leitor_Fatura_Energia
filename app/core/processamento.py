@@ -259,7 +259,7 @@ def extrair_energia_injetada_valor(texto: str) -> float:
 # IA – Leitura inteligente da fatura
 # ===================================================================
 
-def call_llm_fatura(texto_pdf: str, hints: Dict[str, Any]) -> Dict[str, Any]:
+def call_llm_fatura(texto_pdf: str, hints: Dict[str, Any], prompt_extra: str = "") -> Dict[str, Any]:
     if not OPENAI_API_KEY:
         raise RuntimeError("OPENAI_API_KEY não configurada.")
 
@@ -272,8 +272,13 @@ def call_llm_fatura(texto_pdf: str, hints: Dict[str, Any]) -> Dict[str, Any]:
         model_kwargs={"response_format": {"type": "json_object"}},
     )
 
+    extra_block = ""
+    if prompt_extra:
+        extra_block = f"\nINSTRUÇÕES DO CLIENTE (priorize e siga):\n{prompt_extra}\n"
+
     prompt = f"""
 Você é especialista em leitura de faturas ENERGISA.
+{extra_block}
 
 INSTRUÇÃO CRÍTICA – ENERGIA ATIVA INJETADA:
 - Leia SOMENTE dentro de "Itens da Fatura".
@@ -310,6 +315,7 @@ DICAS (hints) extraídas via regex em json:
 {json.dumps(hints, ensure_ascii=False)}
 
 Regras importantes (siga com rigor):
+- Priorize as INSTRUÇÕES DO CLIENTE para fórmulas e formato.
 - Use apenas informações presentes no texto ou deduções matemáticas diretas.
 - 'codigo_do_cliente_uc' deve ser a UC/Unidade Consumidora (ex: "10/########-#").
 - Datas no formato DD/MM/AAAA.
@@ -328,9 +334,10 @@ Regras importantes (siga com rigor):
 - 'saldo_acumulado': deve ser lido literalmente do texto, mantendo sinal e formato.
 
 Para 'economia' e 'valor_a_pagar':
-- Considere a base = energia_atv_injetada_valor (em R$, valor positivo).
-- economia = base * 0.3
-- valor_a_pagar = base * 0.7
+- Siga as instruções do cliente se ele definir fatores ou fórmulas.
+- Se o cliente não definir, use a base = energia_atv_injetada_valor (em R$, valor positivo) e calcule:
+    economia = base * 0.3
+    valor_a_pagar = base * 0.7
 - Retorne-os como string no formato brasileiro, ex.: "999,99".
 
 TEXTO COMPLETO DA FATURA (PDF → texto):
@@ -357,9 +364,10 @@ Responda APENAS com o JSON final, sem comentários adicionais.
 
 def calcular_economia_valor(energia_valor: str) -> tuple[str, str]:
     """
-    Usa o valor em R$ da Energia Atv Injetada:
-      economia = valor * 0.3
-      valor_a_pagar = valor * 0.7
+    Fallback padrão (usado só se a IA não fornecer):
+      economia = energia_atv_injetada_valor * 0.3
+      valor_a_pagar = energia_atv_injetada_valor * 0.7
+    Retorna ambos no formato brasileiro.
     """
     v = br_to_float(energia_valor)
     if v <= 0:
@@ -373,7 +381,7 @@ def calcular_economia_valor(energia_valor: str) -> tuple[str, str]:
 # PROCESSAMENTO PRINCIPAL
 # ===================================================================
 
-def processar_pdf(pdf_path: Union[str, Path, IO[bytes]]) -> Dict[str, Any]:
+def processar_pdf(pdf_path: Union[str, Path, IO[bytes]], prompt_extra: str = "") -> Dict[str, Any]:
     print("\n=========== PROCESSANDO PDF ===========")
 
     texto = extrair_texto(pdf_path)
@@ -429,7 +437,7 @@ def processar_pdf(pdf_path: Union[str, Path, IO[bytes]]) -> Dict[str, Any]:
     print(json.dumps(hints, indent=2, ensure_ascii=False), "\n")
 
     # Chamada da IA
-    ia = call_llm_fatura(texto, hints)
+    ia = call_llm_fatura(texto, hints, prompt_extra=prompt_extra)
 
     print("\n===== JSON BRUTO RECEBIDO DA IA =====")
     print(json.dumps(ia, indent=2, ensure_ascii=False), "\n")
@@ -474,16 +482,16 @@ def processar_pdf(pdf_path: Union[str, Path, IO[bytes]]) -> Dict[str, Any]:
     if not isinstance(historico_final, list) or not historico_final:
         historico_final = historico_hint
 
-    # economia / valor_a_pagar – se IA não preencher, calculamos
+    # economia / valor_a_pagar – prioriza valores vindos da IA; calcula se faltar
     economia_final = ia.get("economia", "") or ""
     valor_pagar_final = ia.get("valor_a_pagar", "") or ""
 
     if not economia_final or not valor_pagar_final:
-        eco_calc, pagar_calc = calcular_economia_valor(energia_valor_final)
-        if eco_calc and not economia_final:
-            economia_final = eco_calc
-        if pagar_calc and not valor_pagar_final:
-            valor_pagar_final = pagar_calc
+        economia_calc, valor_pagar_calc = calcular_economia_valor(energia_valor_final)
+        if economia_calc and not economia_final:
+            economia_final = economia_calc
+        if valor_pagar_calc and not valor_pagar_final:
+            valor_pagar_final = valor_pagar_calc
 
     resultado = {
         "nome_do_cliente": nome_final,

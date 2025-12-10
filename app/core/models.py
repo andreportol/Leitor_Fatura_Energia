@@ -33,19 +33,9 @@ class Cliente(Base):
         verbose_name='Diretrizes para IA', 
         blank=True, 
         null=True,                          
-        default= ''' Regras de Negócio:
-        - "nome do cliente"
-        - "data de emissao"
-        - "data de vencimento"
-        - "codigo do cliente - uc"
-        - "mes de referencia"
-        - "consumo kwh"
-        - "valor a pagar"
-        - "Economia" 
-        - "historico de consumo" (lista de objetos com "mês" e "consumo" em ordem cronológica se possível)
-        - "saldo acumulado"
-        - "preco unit com tributos"
-        - "Energia Atv Injetada"
+        default= ''' 
+        "valor a pagar" =  energia_atv_injetada_valor * 0.7
+        "Economia"  =  energia_atv_injetada_valor * 0.3
         ''')
 
     def __str__(self):
