@@ -61,6 +61,10 @@
         .processed-action-btn {
             min-width: 130px;
         }
+        .download-action-btn {
+            min-width: 110px;
+            padding-inline: 0.75rem;
+        }
         .processed-actions {
             display: grid;
             gap: 0.75rem;
@@ -81,6 +85,10 @@
             background-color: #fff;
         }
         @media (min-width: 1200px) {
+            .download-form {
+                width: auto;
+                justify-self: end;
+            }
             .processed-actions {
                 grid-template-columns: 1fr auto;
                 align-items: stretch;
@@ -265,22 +273,25 @@
                                 {% for item in processed_files %}
                                 <li class="list-group-item processed-item border-0 d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-2">
                                     <div>
-                                        <div class="h5 fw-semibold mb-0 text-success">{{ item.name }}</div>
-                                        {% if item.suggested_contact_id %}
-                                            <div class="text-muted small">Contato sugerido: ID {{ item.suggested_contact_id }}</div>
-                                        {% endif %}
-                                    </div>
+                                    <div class="h5 fw-semibold mb-0 text-success">{{ item.original_name|default:item.name }}</div>
+                                    {% if item.suggested_contact_id %}
+                                        <div class="text-muted small">Contato sugerido: ID {{ item.suggested_contact_id }}</div>
+                                    {% endif %}
+                                </div>
                                     <div class="processed-actions w-100">
                                         {% if is_vip %}
                                         <form method="post" action="{% url 'core:processamento' %}" class="m-0 send-form">
                                             {% csrf_token %}
                                             <input type="hidden" name="action" value="send_invoice">
                                             <input type="hidden" name="file_index" value="{{ forloop.counter0 }}">
+                                            <input type="hidden" name="contact_id" value="{{ item.resolved_contact_id|default:item.suggested_contact_id|default_if_none:'' }}">
                                             <div class="send-grid">
-                                                <input type="text" name="contact_name" class="form-control form-control-sm h-100" style="min-width: 0;" list="contactSuggestions" placeholder="Nome do contato" value="{{ item.suggested_contact_name|default:item.contact_name }}">
+                                                <input type="text" name="contact_name" class="form-control form-control-sm h-100" style="min-width: 0;" list="contactSuggestions" placeholder="Nome do contato" value="{{ item.contact_name }}">
+                                                {% if item.resolved_contact_id %}
                                                 <button class="btn btn-success btn-sm text-nowrap w-100 h-100 processed-action-btn" type="submit" data-send-btn>
                                                     <i class="fas fa-paper-plane me-1"></i>Enviar
                                                 </button>
+                                                {% endif %}
                                             </div>
                                         </form>
                                         {% endif %}
@@ -288,7 +299,7 @@
                                             {% csrf_token %}
                                             <input type="hidden" name="action" value="download_file">
                                             <input type="hidden" name="file_index" value="{{ forloop.counter0 }}">
-                                            <button class="btn btn-outline-success btn-sm w-100 text-nowrap h-100 processed-action-btn" type="submit" data-download-btn>
+                                            <button class="btn btn-outline-success btn-sm w-100 text-nowrap h-100 download-action-btn" type="submit" data-download-btn>
                                                 <i class="fas fa-file-arrow-down me-1"></i>Baixar
                                             </button>
                                         </form>
@@ -750,12 +761,14 @@
             const contacts = [
                 {% for contato in contatos %}
                 {
+                    id: {{ contato.id }},
                     name: "{{ contato.nome|escapejs }}",
                     email: "{{ contato.email|default_if_none:''|escapejs }}",
                     phone: "{{ contato.telefone|default_if_none:''|escapejs }}",
                 }{% if not forloop.last %},{% endif %}
                 {% endfor %}
             ].filter((c) => c.name);
+            window.__clientContacts = contacts;
             let lastFiltered = contacts;
             let selected = [];
 
@@ -919,27 +932,13 @@
             });
         })();
         (function() {
-            const processedList = document.getElementById('processedList');
             const processedCard = document.getElementById('processedCard');
             const downloadForms = document.querySelectorAll('form[data-download-form]');
-            if (!processedList || !downloadForms.length) return;
-
-            const hideCardIfEmpty = () => {
-                if (!processedList.querySelector('li')) {
-                    if (processedCard) processedCard.classList.add('d-none');
-                }
-            };
+            if (!downloadForms.length) return;
 
             downloadForms.forEach((form) => {
                 form.addEventListener('submit', () => {
                     const type = form.getAttribute('data-download-form');
-                    if (type === 'single') {
-                        setTimeout(() => {
-                            const li = form.closest('li');
-                            if (li) li.remove();
-                            hideCardIfEmpty();
-                        }, 200);
-                    }
                     if (type === 'all') {
                         setTimeout(() => {
                             if (processedCard) processedCard.classList.add('d-none');
@@ -951,16 +950,103 @@
         (function() {
             document.querySelectorAll('[data-download-btn]').forEach(function (btn) {
                 btn.addEventListener('click', function () {
-                    btn.textContent = 'Baixado';
-                    btn.classList.remove('btn-outline-success');
-                    btn.classList.add('btn-success');
+                    btn.textContent = 'Transferido';
+                    btn.classList.remove('btn-outline-success', 'btn-success');
+                    btn.classList.add('btn-danger', 'text-white');
                 });
             });
-            document.querySelectorAll('[data-send-btn]').forEach(function (btn) {
-                btn.addEventListener('click', function () {
-                    btn.textContent = 'Enviado';
-                    btn.classList.remove('btn-success');
-                    btn.classList.add('btn-secondary');
+        })();
+        (function() {
+            const contacts = Array.isArray(window.__clientContacts) ? window.__clientContacts : [];
+            if (!contacts.length) return;
+
+            const slugifyJs = (value) => (value || '')
+                .toString()
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .toLowerCase()
+                .replace(/\s+/g, '')
+                .replace(/[^a-z0-9]/g, '');
+
+            const findContact = (term) => {
+                const s = slugifyJs(term);
+                if (!s) return null;
+                return contacts.find((c) => slugifyJs(c.name) === s)
+                    || contacts.find((c) => slugifyJs(c.name).includes(s))
+                    || null;
+            };
+
+            document.querySelectorAll('.send-form').forEach((form) => {
+                const input = form.querySelector('input[name="contact_name"]');
+                const hiddenId = form.querySelector('input[name="contact_id"]');
+                if (!input || !hiddenId) return;
+
+                const apply = () => {
+                    const match = findContact(input.value);
+                    hiddenId.value = match ? match.id || '' : '';
+                };
+
+                apply();
+                input.addEventListener('change', apply);
+                input.addEventListener('blur', apply);
+                input.addEventListener('input', apply);
+            });
+        })();
+        (function() {
+            const forms = document.querySelectorAll('.send-form');
+            if (!forms.length) return;
+
+            forms.forEach((form) => {
+                form.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    const btn = form.querySelector('[data-send-btn]');
+                    const csrfInput = form.querySelector('input[name="csrfmiddlewaretoken"]');
+                    const formData = new FormData(form);
+                    const actionAttr = form.getAttribute('action') || window.location.pathname;
+                    const actionUrl = actionAttr.startsWith('http')
+                        ? actionAttr
+                        : new URL(actionAttr, window.location.origin).toString();
+
+                    if (btn) {
+                        btn.disabled = true;
+                        btn.textContent = 'Enviando...';
+                        btn.classList.add('disabled');
+                    }
+
+                    fetch(actionUrl, {
+                        method: 'POST',
+                        headers: Object.assign(
+                            { 'X-Requested-With': 'XMLHttpRequest' },
+                            csrfInput ? { 'X-CSRFToken': csrfInput.value } : {}
+                        ),
+                        body: formData,
+                    }).then(async (response) => {
+                        let data = {};
+                        try {
+                            data = await response.json();
+                        } catch (err) {
+                            data = {};
+                        }
+                        if (!response.ok || data.success === false) {
+                            const message = data.message || 'Contato não encontrado.';
+                            throw new Error(message);
+                        }
+                        if (btn) {
+                            btn.disabled = false;
+                            btn.textContent = 'Enviado';
+                            btn.classList.remove('btn-success', 'btn-secondary', 'btn-outline-success', 'btn-primary', 'disabled');
+                            btn.classList.add('btn-danger', 'text-white');
+                        }
+                    }).catch((err) => {
+                        if (btn) {
+                            btn.disabled = false;
+                            btn.textContent = 'Enviar';
+                            btn.classList.remove('disabled');
+                            btn.classList.remove('btn-danger', 'text-white');
+                            btn.classList.add('btn-success');
+                        }
+                        alert(err.message || 'Contato não encontrado.');
+                    });
                 });
             });
         })();

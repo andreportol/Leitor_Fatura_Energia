@@ -113,10 +113,14 @@ class ClienteAdmin(admin.ModelAdmin):
 
 @admin.register(ClienteContato)
 class ClienteContatoAdmin(admin.ModelAdmin):
-    list_display = ('nome', 'email', 'telefone', 'cliente', 'created_at', 'updated_at')
+    list_display = ('nome', 'email', 'telefone', 'cliente_display', 'created_at', 'updated_at')
     search_fields = ('nome', 'email', 'cliente__nome')
     list_filter = ('cliente',)
     readonly_fields = ('created_at', 'updated_at')
+
+    @admin.display(description='Cliente De', ordering='cliente__nome')
+    def cliente_display(self, obj):
+        return obj.cliente
 
 
 class CreditHistoryAdminForm(forms.ModelForm):

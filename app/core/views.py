@@ -659,7 +659,8 @@ class ProcessamentoView(LoginRequiredMixin, TemplateView):
                 context = self._build_invoice_context(parsed, cliente)
                 html = render_to_string('core/modelo_fatura.html', context)
                 nome_para_arquivo = context.get('cliente', {}).get('nome') or getattr(cliente, 'nome', '')
-                outputs.append((Path(f.name).stem or 'fatura', html, nome_para_arquivo))
+                raw_file_name = Path(f.name).name or 'fatura.pdf'
+                outputs.append((Path(f.name).stem or 'fatura', html, nome_para_arquivo, raw_file_name))
             except Exception as exc:
                 logger.exception('Erro ao processar fatura %s', f.name)
                 messages.error(request, f'Erro ao processar {f.name}: {exc}')
@@ -669,14 +670,13 @@ class ProcessamentoView(LoginRequiredMixin, TemplateView):
 
         processed = []
         contatos_cache = list(ClienteContato.objects.filter(cliente=cliente)) if cliente.is_VIP else []
-        for idx, (name, html, nome_para_arquivo) in enumerate(outputs, start=1):
+        for idx, (name, html, nome_para_arquivo, raw_file_name) in enumerate(outputs, start=1):
             if cliente.is_VIP:
-                base_name = slugify(nome_para_arquivo) or slugify(cliente.nome) or 'cliente'
-                suffix = f'-{idx}' if len(outputs) > 1 else ''
-                safe_name = f'{base_name}{suffix}'
+                base_name = Path(raw_file_name).stem or (slugify(nome_para_arquivo) or slugify(cliente.nome) or 'cliente')
+                safe_name = base_name
                 contact_match = self._match_contact_by_name(contatos_cache, nome_para_arquivo)
             else:
-                safe_name = slugify(name) or 'fatura'
+                safe_name = Path(raw_file_name).stem or (slugify(name) or 'fatura')
                 contact_match = None
             processed.append({
                 'name': f'{safe_name}.html',
@@ -685,6 +685,7 @@ class ProcessamentoView(LoginRequiredMixin, TemplateView):
                 'contact_name': nome_para_arquivo,
                 'suggested_contact_id': contact_match.id if contact_match else None,
                 'suggested_contact_name': contact_match.nome if contact_match else '',
+                'original_name': raw_file_name,
             })
 
         # Debita os créditos apenas pelas faturas geradas
@@ -761,6 +762,49 @@ class ProcessamentoView(LoginRequiredMixin, TemplateView):
         else:
             context['contatos'] = []
             context['contacts_total'] = 0
+        if processed and getattr(cliente, 'is_VIP', False):
+            contatos_lista = context.get('contatos') or []
+
+            def _to_int(value):
+                if value is None:
+                    return None
+                if isinstance(value, str):
+                    value = value.strip()
+                if value == '':
+                    return None
+                try:
+                    return int(value)
+                except (TypeError, ValueError):
+                    return None
+
+            for item in processed:
+                resolved_id = None
+                suggested_id = _to_int(item.get('suggested_contact_id'))
+                contact_id = _to_int(item.get('contact_id')) or suggested_id
+                candidate_ids = [cid for cid in (contact_id, suggested_id) if cid]
+
+                for cid in candidate_ids:
+                    match = next((c for c in contatos_lista if c.id == cid), None)
+                    if match:
+                        resolved_id = match.id
+                        break
+
+                if not resolved_id:
+                    search_order = [
+                        item.get('suggested_contact_name') or '',
+                        item.get('contact_name') or '',
+                    ]
+                    for candidate in search_order:
+                        if not candidate or resolved_id:
+                            continue
+                        match = self._match_contact_by_name(contatos_lista, candidate)
+                        if match:
+                            resolved_id = match.id
+                            break
+
+                item['resolved_contact_id'] = resolved_id
+                item['has_contact'] = bool(resolved_id)
+            context['processed_files'] = processed
         if cliente:
             history_qs = cliente.credit_history.all().order_by('-created_at')
             paginator = Paginator(history_qs, 10)
@@ -852,18 +896,30 @@ class ProcessamentoView(LoginRequiredMixin, TemplateView):
         return redirect('core:processamento')
 
     def _handle_send_invoice(self, request, cliente):
-        if not cliente.is_VIP:
-            messages.error(request, 'Somente clientes VIP podem enviar faturas automaticamente.')
+        is_ajax = request.headers.get('x-requested-with', '').lower() == 'xmlhttprequest'
+
+        def ajax_error(msg, status=400):
+            if is_ajax:
+                return JsonResponse({'success': False, 'message': msg}, status=status)
+            messages.error(request, msg)
             return redirect('core:processamento')
 
-        contact_id = request.POST.get('contact_id')
+        def ajax_success(msg='Fatura enviada.'):
+            if is_ajax:
+                return JsonResponse({'success': True, 'message': msg})
+            messages.success(request, msg)
+            return redirect('core:processamento')
+
+        if not cliente.is_VIP:
+            return ajax_error('Somente clientes VIP podem enviar faturas automaticamente.', status=403)
+
+        contact_id_raw = request.POST.get('contact_id', '').strip()
         contact_name_input = request.POST.get('contact_name', '').strip()
         file_index_raw = request.POST.get('file_index', '0')
         processed = self._get_processed_files(request)
 
         if not processed:
-            messages.error(request, 'Não há fatura processada para enviar.')
-            return redirect('core:processamento')
+            return ajax_error('Não há fatura processada para enviar.')
 
         try:
             file_index = int(file_index_raw)
@@ -871,28 +927,49 @@ class ProcessamentoView(LoginRequiredMixin, TemplateView):
             file_index = 0
 
         if file_index < 0 or file_index >= len(processed):
-            messages.error(request, 'Fatura selecionada é inválida.')
-            return redirect('core:processamento')
+            return ajax_error('Fatura selecionada é inválida.')
+
+        def _to_int(value):
+            if value is None:
+                return None
+            if isinstance(value, str):
+                value = value.strip()
+            if value == '':
+                return None
+            try:
+                return int(value)
+            except (TypeError, ValueError):
+                return None
+
+        suggested_id = _to_int(processed[file_index].get('suggested_contact_id'))
+        suggested_name = processed[file_index].get('suggested_contact_name') or ''
+        invoice_contact_name = processed[file_index].get('contact_name', '')
+        contact_id = _to_int(contact_id_raw) or suggested_id
+        contatos_qs = ClienteContato.objects.filter(cliente=cliente)
 
         contato = None
-        if contact_id:
-            contato = ClienteContato.objects.filter(pk=contact_id, cliente=cliente).first()
-        if not contato and contact_name_input:
-            contatos_cache = list(ClienteContato.objects.filter(cliente=cliente))
-            contato = self._match_contact_by_name(contatos_cache, contact_name_input)
+        candidate_ids = [cid for cid in (contact_id, suggested_id) if cid]
+        if candidate_ids:
+            contato = contatos_qs.filter(pk__in=candidate_ids).first()
+
         if not contato:
-            suggested_id = processed[file_index].get('suggested_contact_id')
-            if suggested_id:
-                contato = ClienteContato.objects.filter(pk=suggested_id, cliente=cliente).first()
+            search_order = [contact_name_input, suggested_name, invoice_contact_name]
+            for candidate in search_order:
+                if not candidate or contato:
+                    continue
+                contato = contatos_qs.filter(nome__iexact=candidate).first()
+                if not contato:
+                    contato = contatos_qs.filter(nome__icontains=candidate).first()
+
         if not contato:
-            messages.error(request, 'Contato não encontrado. Busque pelo nome ou cadastre antes de enviar.')
-            return redirect('core:processamento')
+            return ajax_error('Contato não encontrado. Busque pelo nome ou cadastre antes de enviar.')
 
         item = processed[file_index]
         success = self._send_invoice_to_contact(contato, item, cliente)
         if success:
             request.session.modified = True
-        return redirect('core:processamento')
+            return ajax_success('Fatura enviada para o contato.')
+        return ajax_error('Não foi possível enviar a fatura. Verifique o contato.')
 
     def _handle_send_all(self, request, cliente):
         if not cliente.is_VIP:
@@ -931,10 +1008,17 @@ class ProcessamentoView(LoginRequiredMixin, TemplateView):
     def _match_contact_by_name(self, contatos_cache, nome_busca: str):
         if not nome_busca:
             return None
-        alvo = slugify(nome_busca).replace('-', '')
+        alvo_slug = slugify(nome_busca).replace('-', '')
+        alvo_lower = nome_busca.lower().strip()
         for c in contatos_cache:
             ref = slugify(c.nome).replace('-', '')
-            if ref == alvo:
+            if ref == alvo_slug:
+                return c
+        for c in contatos_cache:
+            if c.nome.lower().strip() == alvo_lower:
+                return c
+        for c in contatos_cache:
+            if alvo_lower and alvo_lower in c.nome.lower():
                 return c
         return None
 
