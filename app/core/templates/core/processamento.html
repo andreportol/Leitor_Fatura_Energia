@@ -58,6 +58,38 @@
         .border-gray {
             border: 2px solid #ced4da !important;
         }
+        .processed-action-btn {
+            min-width: 130px;
+        }
+        .processed-actions {
+            display: grid;
+            gap: 0.75rem;
+        }
+        .send-grid {
+            display: grid;
+            gap: 0.5rem;
+        }
+        .processed-item {
+            border: 1px solid #0d6efd !important;
+            border-radius: 10px;
+        }
+        .list-group-flush .processed-item {
+            border: 1px solid #0d6efd !important;
+            border-radius: 10px !important;
+            margin-bottom: 0.5rem;
+            padding: 0.9rem 1rem;
+            background-color: #fff;
+        }
+        @media (min-width: 1200px) {
+            .processed-actions {
+                grid-template-columns: 1fr auto;
+                align-items: stretch;
+            }
+            .send-grid {
+                grid-template-columns: 1fr auto;
+                align-items: stretch;
+            }
+        }
     </style>
 </head>
 <body class="bg-light">
@@ -231,33 +263,32 @@
                             </div>
                             <ul class="list-group list-group-flush" id="processedList">
                                 {% for item in processed_files %}
-                                <li class="list-group-item d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-2">
+                                <li class="list-group-item processed-item border-0 d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-2">
                                     <div>
                                         <div class="h5 fw-semibold mb-0 text-success">{{ item.name }}</div>
-                                        {% if item.contact_name %}
-                                            <div class="text-muted small">Cliente: {{ item.contact_name }}</div>
-                                        {% endif %}
                                         {% if item.suggested_contact_id %}
                                             <div class="text-muted small">Contato sugerido: ID {{ item.suggested_contact_id }}</div>
                                         {% endif %}
                                     </div>
-                                    <div class="d-flex flex-column flex-xl-row gap-2 flex-wrap align-items-stretch">
+                                    <div class="processed-actions w-100">
                                         {% if is_vip %}
-                                        <form method="post" action="{% url 'core:processamento' %}" class="m-0 d-flex flex-column flex-xl-row gap-2 flex-fill flex-xl-nowrap align-items-stretch">
+                                        <form method="post" action="{% url 'core:processamento' %}" class="m-0 send-form">
                                             {% csrf_token %}
                                             <input type="hidden" name="action" value="send_invoice">
                                             <input type="hidden" name="file_index" value="{{ forloop.counter0 }}">
-                                            <input type="text" name="contact_name" class="form-control form-control-sm flex-fill w-100" style="min-width: 340px;" list="contactSuggestions" placeholder="Nome do contato" value="{{ item.suggested_contact_name|default:item.contact_name }}">
-                                            <button class="btn btn-success btn-sm text-nowrap w-100 w-xl-auto" style="min-width: 150px;" type="submit" data-send-btn>
-                                                <i class="fas fa-paper-plane me-1"></i>Enviar
-                                            </button>
+                                            <div class="send-grid">
+                                                <input type="text" name="contact_name" class="form-control form-control-sm h-100" style="min-width: 0;" list="contactSuggestions" placeholder="Nome do contato" value="{{ item.suggested_contact_name|default:item.contact_name }}">
+                                                <button class="btn btn-success btn-sm text-nowrap w-100 h-100 processed-action-btn" type="submit" data-send-btn>
+                                                    <i class="fas fa-paper-plane me-1"></i>Enviar
+                                                </button>
+                                            </div>
                                         </form>
                                         {% endif %}
-                                        <form method="post" action="{% url 'core:processamento' %}" class="m-0 flex-fill flex-xl-grow-0 w-100 w-xl-auto" data-download-form="single">
+                                        <form method="post" action="{% url 'core:processamento' %}" class="m-0 d-grid download-form" data-download-form="single">
                                             {% csrf_token %}
                                             <input type="hidden" name="action" value="download_file">
                                             <input type="hidden" name="file_index" value="{{ forloop.counter0 }}">
-                                            <button class="btn btn-outline-success btn-sm w-100 w-xl-auto text-nowrap" style="min-width: 150px;" type="submit" data-download-btn>
+                                            <button class="btn btn-outline-success btn-sm w-100 text-nowrap h-100 processed-action-btn" type="submit" data-download-btn>
                                                 <i class="fas fa-file-arrow-down me-1"></i>Baixar
                                             </button>
                                         </form>
