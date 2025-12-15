@@ -10,6 +10,22 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{% static 'css/index.css' %}">
     <link rel="stylesheet" href="{% static 'css/footer.css' %}">
+    <style>
+        /* Botão do input de arquivo em português com fundo azul */
+        #pixQrcode::file-selector-button,
+        #pixQrcode::-webkit-file-upload-button {
+            background-color: #0d6efd;
+            color: #fff;
+            border: 1px solid #0a58ca;
+            border-radius: 6px;
+            padding: 6px 12px;
+            cursor: pointer;
+        }
+        #pixQrcode::file-selector-button:hover,
+        #pixQrcode::-webkit-file-upload-button:hover {
+            background-color: #0b5ed7;
+        }
+    </style>
 </head>
 <body class="bg-light d-flex flex-column min-vh-100">
     <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm sticky-top">
@@ -69,7 +85,7 @@
                                         <div class="alert alert-{{ message.tags|default:'info' }} mb-3" role="alert">{{ message }}</div>
                                     {% endfor %}
                                 {% endif %}
-                                <form id="companyForm" method="post" action="{% url 'core:cadastro' %}">
+                                <form id="companyForm" method="post" action="{% url 'core:cadastro' %}" enctype="multipart/form-data">
                                     {% csrf_token %}
                                     <div class="mb-3">
                                         <label for="companyName" class="form-label">Nome da empresa</label>
@@ -82,6 +98,20 @@
                                     <div class="mb-3">
                                         <label for="companyPhone" class="form-label">Telefone (WhatsApp)</label>
                                         <input type="tel" class="form-control" id="companyPhone" name="companyPhone" value="{{ form_data.companyPhone|default:'' }}" placeholder="(67) 99999-9999" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="pixKey" class="form-label">Chave PIX (opcional)</label>
+                                        <input type="text" class="form-control" id="pixKey" name="pixKey" value="{{ form_data.pixKey|default:'' }}" placeholder="Ex.: sua_chave_pix@empresa.com">
+                                        <small class="text-muted">Se vazio, nenhuma chave será exibida.</small>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="pixQrcode" class="form-label">QR Code PIX (imagem)</label>
+                                        <input type="file" class="form-control form-control-sm" id="pixQrcode" name="pixQrcode" accept="image/*" lang="pt" title="Clique aqui e selecione o arquivo.">
+                                        <small class="text-muted d-block">Opcional. Se não enviar, exibiremos apenas a chave PIX.</small>
+                                        <div class="mt-2 text-center">
+                                            <span class="text-muted small d-block">Exemplo de QR Code:</span>
+                                            <img src="{% static 'img/qrcode_bancobrasil.jpeg' %}" alt="Exemplo de QR Code" style="max-height:140px; width:auto; border-radius:10px; box-shadow:0 6px 16px rgba(0,0,0,0.12);">
+                                        </div>
                                     </div>
                                     <div class="mb-3">
                                         <label for="companyPassword" class="form-label">Senha para cadastro</label>

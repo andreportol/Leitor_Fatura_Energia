@@ -464,7 +464,6 @@
   <body>
     <button class="print-btn" onclick="window.print()">Imprimir</button>
     {% static 'img/logomarca.png' as default_logo %}
-    {% static 'img/qrcode_bancobrasil.jpeg' as default_qrcode %}
     <div class="container">
       <header class="header">
         <div class="logo-container">
@@ -610,11 +609,13 @@
       {% endif %}
 
       <section class="qrcode-area">
+        {% if qrcode_path %}
         <img
-          src="{{ qrcode_path|default:default_qrcode }}"
+          src="{{ qrcode_path }}"
           alt="QR Code para pagamento"
           class="qrcode-image"
         />
+        {% endif %}
         <div class="qrcode-actions">
           <p class="qrcode-caption">
             Chave pix:

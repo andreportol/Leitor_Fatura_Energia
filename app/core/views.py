@@ -31,7 +31,7 @@ from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 
 from app.core.models import Cliente, ClienteContato, CreditHistory
 from django.contrib.auth.password_validation import validate_password, password_validators_help_text_html
-from app.core.processamento import processar_pdf
+from app.core.services.processamento_energisa import processar_pdf
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +77,8 @@ class CadastroView(View):
         state = request.POST.get('companyState', '').strip()
         city = request.POST.get('companyCity', '').strip()
         phone = request.POST.get('companyPhone', '').strip()
+        pix_key = request.POST.get('pixKey', '').strip()
+        pix_qrcode = request.FILES.get('pixQrcode')
         # Valores padrão (não editáveis pelo formulário)
         active_flag = True
         credit_value = Decimal('0')
@@ -89,6 +91,7 @@ class CadastroView(View):
             'companyPhone': phone,
             'companyActive': active_flag,
             'companyCredit': credit_value,
+            'pixKey': pix_key,
         }
 
         if not name or not email or not phone or not password or not password_confirm or not state or not city:
@@ -126,6 +129,8 @@ class CadastroView(View):
                     is_VIP=False,
                     valor_credito=credit_value,
                     password=user.password,  # hashed
+                    pix_key=pix_key or None,
+                    pix_qrcode=pix_qrcode or None,
                 )
         except IntegrityError:
             messages.error(request, 'Não foi possível concluir o cadastro. Verifique os dados e tente novamente.')
@@ -528,6 +533,34 @@ class ProcessamentoView(LoginRequiredMixin, TemplateView):
             url = f"{settings.STATIC_URL}{path}" if settings.STATIC_URL else ''
         return self.request.build_absolute_uri(url) if url else ''
 
+    def _absolute_media(self, path: str) -> str:
+        """Retorna URL absoluta para um arquivo em MEDIA_URL."""
+        if not path:
+            return ''
+        if path.startswith('http://') or path.startswith('https://'):
+            return path
+        base = settings.MEDIA_URL or '/media/'
+        url = f"{base}{path.lstrip('/')}"
+        try:
+            return self.request.build_absolute_uri(url)
+        except Exception:
+            return url
+
+    def _file_to_data_uri(self, path: str) -> str:
+        """Lê um arquivo local e retorna data URI (útil para garantir renderização offline)."""
+        if not path or not os.path.exists(path):
+            return ''
+        mime = 'image/jpeg'
+        ext = os.path.splitext(path)[1].lower()
+        if ext in ('.png',):
+            mime = 'image/png'
+        try:
+            with open(path, 'rb') as fh:
+                encoded = base64.b64encode(fh.read()).decode('ascii')
+            return f"data:{mime};base64,{encoded}"
+        except Exception:
+            return ''
+
     def _build_historico(self, historico_raw):
         historico = []
         for item in historico_raw or []:
@@ -597,11 +630,19 @@ class ProcessamentoView(LoginRequiredMixin, TemplateView):
         saldo_acumulado = data.get('saldo_acumulado') or data.get('saldo acumulado', '')
         mes_referencia = data.get('mes_referencia') or data.get('mes de referencia', '')
         leitura_anterior = data.get('leitura_anterior') or data.get('leitura anterior', '')
-        pix_key = getattr(settings, 'PIX_KEY', 'alpsistemascg@gmail.com')
+        pix_key = getattr(cliente, 'pix_key', None) or getattr(settings, 'PIX_KEY', 'alpsistemascg@gmail.com')
+        pix_qrcode_url = ''
+        try:
+            if getattr(cliente, 'pix_qrcode', None) and getattr(cliente.pix_qrcode, 'path', None):
+                pix_qrcode_url = self._file_to_data_uri(cliente.pix_qrcode.path)
+            elif getattr(cliente, 'pix_qrcode', None):
+                pix_qrcode_url = self._absolute_media(getattr(cliente.pix_qrcode, 'url', '') or '')
+        except Exception:
+            pix_qrcode_url = ''
         leitura_atual = data.get('leitura_atual') or data.get('leitura atual', '')
         return {
             'logo_path': self._absolute_static('img/logomarca.png'),
-            'qrcode_path': self._absolute_static('img/qrcode_bancobrasil.jpeg'),
+            'qrcode_path': pix_qrcode_url,
             'pix_key': pix_key,
             'mes_referencia': mes_referencia,
             'cliente': {
@@ -660,7 +701,21 @@ class ProcessamentoView(LoginRequiredMixin, TemplateView):
                 prompt_extra = cliente.prompt_template or ""
                 parsed = processar_pdf(f, prompt_extra=prompt_extra)
                 context = self._build_invoice_context(parsed, cliente)
-                html = render_to_string('core/modelo_fatura.html', context)
+                template_name = "core/modelo_fatura.html"
+                template_attr = (getattr(cliente, "template_fatura", "") or "").strip()
+                if getattr(cliente, "is_VIP", False) and template_attr:
+                    # VIP: sempre buscar o template dentro de "faturas/<arquivo>.html"
+                    template_name = f"faturas/{template_attr}"
+                # Força logo específico se o template customizado tiver uma logo própria.
+                if "boeira_padrao.html" in template_name:
+                    context["logo_path"] = self._absolute_static("img/boeira_solucoes/boeira_logomarca.jpeg")
+                    context["qrcode_path"] = self._absolute_static("img/boeira_solucoes/qrcode_boeira.jpeg")
+                    context["pix_key"] = "Reginaldo Boeira Pereira"
+                try:
+                    html = render_to_string(template_name, context)
+                except Exception:
+                    logger.exception("Falha ao renderizar template %s; usando padrão", template_name)
+                    html = render_to_string("core/modelo_fatura.html", context)
                 nome_para_arquivo = context.get('cliente', {}).get('nome') or getattr(cliente, 'nome', '')
                 raw_file_name = Path(f.name).name or 'fatura.pdf'
                 outputs.append((Path(f.name).stem or 'fatura', html, nome_para_arquivo, raw_file_name))

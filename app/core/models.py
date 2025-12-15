@@ -25,6 +25,22 @@ class Cliente(Base):
     is_ativo = models.BooleanField(default=True)
     is_VIP = models.BooleanField(default=False)
     vip_request_pending = models.BooleanField(default=False)
+    template_fatura = models.CharField(
+        max_length=100,
+        default=None,
+    )
+    pix_key = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        verbose_name='Chave PIX',
+    )
+    pix_qrcode = models.ImageField(
+        upload_to='pix_qrcodes/',
+        blank=True,
+        null=True,
+        verbose_name='QR Code PIX',
+    )
     saldo_atual = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, verbose_name='Saldo atual')
     valor_credito = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, verbose_name='Valor do crédito')
     saldo_final = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, verbose_name='Saldo final')

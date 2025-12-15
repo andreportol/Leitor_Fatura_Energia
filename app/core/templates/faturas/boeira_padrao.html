@@ -1,0 +1,154 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fatura - Boeira Soluções</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { font-family: "Segoe UI", Arial, sans-serif; background: #f5f6f7; color: #333; padding: 28px; }
+      .container { max-width: 880px; margin: 0 auto; border: 2px solid #111; border-radius: 16px; overflow: hidden; box-shadow: 0 25px 65px rgba(0,0,0,0.12); background: #fff; }
+      .header { background: linear-gradient(90deg, #000 0%, #000 55%, #c99700 92%, #ffcf2f 100%); color: #f8f8f8; padding: 28px 36px; display: flex; justify-content: space-between; align-items: center; gap: 24px; }
+      .logo-container { display: flex; flex-direction: column; gap: 12px; }
+      .logo-image { max-height: 92px; width: auto; border-radius: 16px; object-fit: contain; background: rgba(255,255,255,0.08); padding: 6px 12px; box-shadow: 0 12px 25px rgba(0,0,0,0.26); }
+      .invoice-title { text-align: right; }
+      .invoice-title h1 { font-size: 2rem; letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 6px; }
+      .invoice-title p { font-size: 0.95rem; line-height: 1.5; }
+      .header-meta { font-size: 0.9rem; color: rgba(255,255,255,0.85); }
+      .client-info { background: #fff9e6; padding: 26px 36px; border-bottom: 2px dashed #111; }
+      .client-info h3 { margin-bottom: 16px; border-bottom: 2px solid #ffd700; padding-bottom: 8px; letter-spacing: 0.16em; text-transform: uppercase; font-size: 1rem; color: #222; }
+      .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px 18px; }
+      .info-item { font-size: 0.95rem; }
+      .highlight { font-weight: 700; color: #111; }
+      .highlight-danger { color: #c62828; font-weight: 700; }
+      .invoice-summary { display: flex; gap: 20px; padding: 24px 36px; background: #fff; flex-wrap: wrap; }
+      .summary-box { flex: 1 1 260px; border: 2px solid #111; border-radius: 12px; padding: 18px 20px; box-shadow: 0 16px 35px rgba(0,0,0,0.08); }
+      .summary-box h3 { text-transform: uppercase; letter-spacing: 0.14em; border-bottom: 2px solid #ffd700; padding-bottom: 8px; margin-bottom: 12px; }
+      .value { font-weight: 700; color: #111; }
+      .valor-pagar { color: #c62828; font-weight: 800; font-size: 1.1rem; }
+      .energy-details { background: #f8f9fa; padding: 22px 36px; }
+      .energy-details h3 { margin-bottom: 12px; letter-spacing: 0.12em; text-transform: uppercase; }
+      .energy-item { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.95rem; }
+      .consumption-history { padding: 0 24px 18px; }
+      .consumption-history table { width: 100%; border-collapse: collapse; box-shadow: 0 18px 38px rgba(0,0,0,0.08); }
+      .consumption-history th { background: #111; color: #f8f8f8; text-transform: uppercase; letter-spacing: 0.08em; padding: 8px 10px; font-size: 0.68rem; }
+      .consumption-history td { border: 1px solid #ddd; padding: 8px 10px; font-size: 0.8rem; }
+      .consumption-history tr:nth-child(even) { background: #fafafa; }
+      .qrcode-area { display: flex; flex-direction: column; align-items: center; text-align: center; margin: 22px 36px 32px; padding: 16px 18px; background: #fff; border-top: 2px dashed #111; }
+      .qrcode-image { width: 165px; display: block; margin: 0 auto 8px; border-radius: 12px; box-shadow: 0 10px 24px rgba(0,0,0,0.18); background: #fff; padding: 5px; }
+      .qrcode-caption { font-size: 0.65rem; color: #666; letter-spacing: 0.04em; }
+      .copy-pix-button { background: #111; color: #fff; border: none; border-radius: 999px; padding: 8px 14px; font-weight: 700; letter-spacing: 0.05em; cursor: pointer; box-shadow: 0 8px 18px rgba(0,0,0,0.18); }
+      .footer { background: #111; color: #fff; padding: 22px 32px; font-size: 0.9rem; }
+      @media print { body { background: #fff; } .container { box-shadow: none; border: 1px solid #111; } .print-btn { display: none; } }
+    </style>
+  </head>
+  <body>
+    <button class="print-btn" onclick="window.print()" style="margin-bottom:12px; padding:8px 14px; border-radius:999px; border:1px solid #111; background:#fff;">Imprimir</button>
+    {% static 'img/boeira_solucoes/boeira_logomarca.jpeg' as boeira_logo_default %}
+    {% static 'img/boeira_solucoes/qrcode_boeira.jpeg' as boeira_qrcode_default %}
+    <div class="container">
+      <header class="header">
+        <div class="logo-container">
+          {% with logo_url=logo_path|default:boeira_logo_default %}
+            <img src="{{ logo_url }}" alt="Boeira Soluções" class="logo-image" loading="lazy" />
+          {% endwith %}
+        </div>
+        <div class="invoice-title">
+          <h1>Fatura de Energia</h1>
+          <p><strong>Mês de Referência:</strong> {{ mes_referencia|default:"" }}</p>
+          <p class="header-meta">
+            <strong>Emissão:</strong> {{ fatura.data_emissao }} &nbsp;&nbsp;
+            <strong>Vencimento:</strong> <span class="highlight-danger">{{ fatura.data_vencimento }}</span>
+          </p>
+          <p class="header-meta">
+            <strong>Saldo Acumulado (kWh):</strong> {{ fatura.saldo_acumulado_display }}
+          </p>
+        </div>
+      </header>
+
+      <section class="client-info">
+        <h3>Dados do Cliente</h3>
+        <div class="info-grid">
+          <div class="info-item"><strong>Nome:</strong> <span class="highlight">{{ cliente.nome }}</span></div>
+          <div class="info-item"><strong>Código UC:</strong> <span class="highlight">{{ cliente.codigo_uc }}</span></div>
+          <div class="info-item"><strong>Endereço:</strong> <span class="highlight">{{ cliente.endereco }}</span></div>
+          <div class="info-item"><strong>Leitura Anterior:</strong> <span class="highlight">{{ fatura.leitura_anterior }}</span></div>
+          <div class="info-item"><strong>Leitura Atual:</strong> <span class="highlight">{{ fatura.leitura_atual }}</span></div>
+        </div>
+      </section>
+
+      <section class="invoice-summary">
+        <div class="summary-box">
+          <h3>Valores</h3>
+          <p><strong>Valor a pagar:</strong> <span class="valor-pagar">{{ fatura.valor_total_display }}</span></p>
+          <p><strong>Economia:</strong> <span class="value">{{ economia_display }}</span></p>
+        </div>
+        <div class="summary-box">
+          <h3>Energia</h3>
+          <p><strong>Energia Ativa Injetada (kWh):</strong> <span class="value">{{ energia_ativa_display }}</span></p>
+          <p><strong>Preço unitário (R$/kWh):</strong> <span class="value">{{ preco_unitario_display }}</span></p>
+          <p><strong>Consumo kWh:</strong> <span class="value">{{ consumo_atual }}</span></p>
+        </div>
+      </section>
+
+      <section class="energy-details">
+        <h3>Histórico de Consumo</h3>
+        <div class="consumption-history">
+          <table>
+            <thead>
+              <tr><th>Mês</th><th>Consumo (kWh)</th></tr>
+            </thead>
+            <tbody>
+              {% for item in historico_consumo %}
+              <tr>
+                <td>{{ item.rotulo|default:item.mes }}</td>
+                <td>{{ item.consumo_display|default:item.consumo }}</td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="2">Sem dados de consumo.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% if historico_resumo %}
+          <div class="historico-resumo" style="margin-top:10px; font-size:0.9rem;">{{ historico_resumo }}</div>
+          {% endif %}
+        </div>
+      </section>
+
+      <section class="qrcode-area">
+        {% with qr_url=qrcode_path|default:boeira_qrcode_default %}
+          {% if qr_url %}
+            <img src="{{ qr_url }}" alt="QR Code para pagamento" class="qrcode-image" />
+          {% endif %}
+        {% endwith %}
+        <div class="qrcode-actions">
+          <p class="qrcode-caption">
+            Chave pix: <span id="pix-key">{{ pix_key|default:"" }}</span>
+          </p>
+          <button type="button" class="copy-pix-button" onclick="copyPixKey()">Copiar chave PIX</button>
+        </div>
+        <p class="copy-feedback" id="copy-feedback" aria-live="polite"></p>
+      </section>
+
+      <footer class="footer">
+        <p><strong>Canais de Atendimento:</strong> WhatsApp: (67) 99252-0749 | E-mail: alpsistemascg@gmail.com</p>
+        <p><strong>Horário de Atendimento:</strong> Segunda a Sexta, das 8h às 17h.</p>
+      </footer>
+    </div>
+
+    <script>
+      function copyPixKey() {
+        const key = document.getElementById('pix-key')?.innerText || '';
+        if (!key) return;
+        navigator.clipboard.writeText(key).then(() => {
+          const feedback = document.getElementById('copy-feedback');
+          if (feedback) {
+            feedback.textContent = 'Chave PIX copiada!';
+            setTimeout(() => feedback.textContent = '', 1800);
+          }
+        });
+      }
+    </script>
+  </body>
+</html>

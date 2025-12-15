@@ -517,3 +517,29 @@ def processar_pdf(pdf_path: Union[str, Path, IO[bytes]], prompt_extra: str = "")
     print("=================================\n")
 
     return resultado
+
+
+# ===================================================================
+# PROCESSAMENTO ORQUESTRADO (compatível com serviço)
+# ===================================================================
+
+def processar(pdf_file: Any, cliente: Any, texto: str | None = None) -> Dict[str, Any]:
+    """
+    Wrapper utilizado pelo serviço de faturas para a Energisa.
+    Usa o pipeline completo (regex + IA) com o prompt do cliente.
+    """
+    texto = texto or extrair_texto(pdf_file)
+    prompt_extra = getattr(cliente, "prompt_template", "") or ""
+    dados = processar_pdf(pdf_file, prompt_extra=prompt_extra) or {}
+
+    template_fatura = getattr(cliente, "template_fatura", "") or "energisa_padrao.html"
+    if getattr(cliente, "is_VIP", False) and getattr(cliente, "template_fatura", ""):
+        template_fatura = cliente.template_fatura
+
+    return {
+        "cliente": cliente,
+        "concessionaria": "ENERGISA",
+        "dados": dados,
+        "template_fatura": template_fatura,
+        "texto": texto,
+    }

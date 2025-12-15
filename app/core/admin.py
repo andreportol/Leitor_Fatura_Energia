@@ -42,14 +42,14 @@ class ClienteAdminForm(forms.ModelForm):
 @admin.register(Cliente)
 class ClienteAdmin(admin.ModelAdmin):
     form = ClienteAdminForm
-    list_display = ('nome', 'email', 'telefone', 'estado', 'cidade', 'is_ativo', 'is_VIP', 'vip_request_pending', 'saldo_atual')
+    list_display = ('nome', 'email', 'telefone', 'estado', 'cidade', 'is_ativo', 'is_VIP', 'vip_request_pending', 'template_fatura', 'saldo_atual')
     search_fields = ('nome', 'email')
     list_filter = ('is_ativo', 'is_VIP', 'vip_request_pending', 'estado', 'cidade')
     ordering = ('-created_at',)
     readonly_fields = ('created_at', 'updated_at', 'saldo_atual', 'saldo_final')
     fieldsets = (
         (None, {
-            'fields': ('nome', 'email', 'telefone', 'estado', 'cidade', 'is_ativo', 'is_VIP', 'vip_request_pending')
+            'fields': ('nome', 'email', 'telefone', 'estado', 'cidade', 'is_ativo', 'is_VIP', 'vip_request_pending', 'template_fatura', 'pix_key', 'pix_qrcode')
         }),
         ('Diretrizes para IA', {
             'fields': ('prompt_template',),
