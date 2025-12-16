@@ -31,20 +31,16 @@ def env_list(name, default=''):
 SECRET_KEY = env('SECRET_KEY', 'django-insecure-h_*m42&o=gyt_t(wujyv5gm=howo)lyyr-$lo-z+q=k602!in(')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = env_bool('DEBUG', True)
+DEBUG = False
 
-ALLOWED_HOSTS = env_list('ALLOWED_HOSTS')
-if not ALLOWED_HOSTS:
-    # Em produção, permita domínios do Railway; em desenvolvimento mantenha * para evitar erro por host.
-    ALLOWED_HOSTS = ['alpfaturas.com.br','alpfaturas.up.railway.app', 'localhost', '127.0.0.1']
-    if DEBUG:
-        ALLOWED_HOSTS.append('*')
-
-CSRF_TRUSTED_ORIGINS = env_list(
-    'CSRF_TRUSTED_ORIGINS',
-    'https://alpfaturas.up.railway.app,https://alpfaturas.com.br',
-)
-
+ALLOWED_HOSTS = [
+        'alpfaturas.com.br',
+        'www.alpfaturas.com.br',
+        'alpfaturas.up.railway.app',
+        'localhost',
+        '127.0.0.1',
+]   
+CSRF_TRUSTED_ORIGINS= ['https://alpfaturas.up.railway.app','https://alpfaturas.com.br','https://www.alpfaturas.com.br']
 
 # Application definition
 
