@@ -27,7 +27,9 @@ class Cliente(Base):
     vip_request_pending = models.BooleanField(default=False)
     template_fatura = models.CharField(
         max_length=100,
-        default=None,
+        blank=True,
+        null=True,
+        default="modelo_fatura.html",
     )
     pix_key = models.CharField(
         max_length=255,

@@ -36,11 +36,11 @@ DEBUG = env_bool('DEBUG', True)
 ALLOWED_HOSTS = env_list('ALLOWED_HOSTS')
 if not ALLOWED_HOSTS:
     # Em produção, permita domínios do Railway; em desenvolvimento mantenha * para evitar erro por host.
-    ALLOWED_HOSTS = ['alpsistemas.up.railway.app', 'localhost', '127.0.0.1']
+    ALLOWED_HOSTS = ['alpfaturas.up.railway.app', 'localhost', '127.0.0.1']
     if DEBUG:
         ALLOWED_HOSTS.append('*')
 
-CSRF_TRUSTED_ORIGINS = env_list('CSRF_TRUSTED_ORIGINS', 'https://alpsistemas.up.railway.app')
+CSRF_TRUSTED_ORIGINS = env_list('CSRF_TRUSTED_ORIGINS', 'https://alpfaturas.up.railway.app')
 
 
 # Application definition

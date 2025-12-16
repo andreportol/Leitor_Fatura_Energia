@@ -701,11 +701,15 @@ class ProcessamentoView(LoginRequiredMixin, TemplateView):
                 prompt_extra = cliente.prompt_template or ""
                 parsed = processar_pdf(f, prompt_extra=prompt_extra)
                 context = self._build_invoice_context(parsed, cliente)
-                template_name = "core/modelo_fatura.html"
+                default_template = "core/modelo_fatura.html"
+                template_name = default_template
                 template_attr = (getattr(cliente, "template_fatura", "") or "").strip()
                 if getattr(cliente, "is_VIP", False) and template_attr:
-                    # VIP: sempre buscar o template dentro de "faturas/<arquivo>.html"
-                    template_name = f"faturas/{template_attr}"
+                    # VIP: usa o template customizado, exceto quando for o modelo padrão
+                    if template_attr == "modelo_fatura.html":
+                        template_name = default_template
+                    else:
+                        template_name = f"faturas/{template_attr}"
                 # Força logo específico se o template customizado tiver uma logo própria.
                 if "boeira_padrao.html" in template_name:
                     context["logo_path"] = self._absolute_static("img/boeira_solucoes/boeira_logomarca.jpeg")

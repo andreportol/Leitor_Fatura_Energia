@@ -19,12 +19,15 @@ admin.site.index_title = 'Painel Administrativo'
 
 
 class ClienteAdminForm(forms.ModelForm):
+    password = forms.CharField(
+        label='Senha',
+        required=False,
+        widget=forms.PasswordInput(render_value=True),
+    )
+
     class Meta:
         model = Cliente
         exclude = ('user',)
-        widgets = {
-            'password': forms.PasswordInput(render_value=True),
-        }
 
     def clean_password(self):
         password = self.cleaned_data.get('password', '')
@@ -49,7 +52,7 @@ class ClienteAdmin(admin.ModelAdmin):
     readonly_fields = ('created_at', 'updated_at', 'saldo_atual', 'saldo_final')
     fieldsets = (
         (None, {
-            'fields': ('nome', 'email', 'telefone', 'estado', 'cidade', 'is_ativo', 'is_VIP', 'vip_request_pending', 'template_fatura', 'pix_key', 'pix_qrcode')
+            'fields': ('nome', 'email', 'password', 'telefone', 'estado', 'cidade', 'is_ativo', 'is_VIP', 'vip_request_pending', 'template_fatura', 'pix_key', 'pix_qrcode')
         }),
         ('Diretrizes para IA', {
             'fields': ('prompt_template',),
