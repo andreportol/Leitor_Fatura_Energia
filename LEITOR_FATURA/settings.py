@@ -40,7 +40,10 @@ if not ALLOWED_HOSTS:
     if DEBUG:
         ALLOWED_HOSTS.append('*')
 
-CSRF_TRUSTED_ORIGINS = env_list('CSRF_TRUSTED_ORIGINS', 'https://alpfaturas.up.railway.app','https://alpfaturas.com.br')
+CSRF_TRUSTED_ORIGINS = env_list(
+    'CSRF_TRUSTED_ORIGINS',
+    'https://alpfaturas.up.railway.app,https://alpfaturas.com.br',
+)
 
 
 # Application definition
