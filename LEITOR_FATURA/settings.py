@@ -227,3 +227,5 @@ JAZZMIN_SETTINGS = {
         {"name": "Início", "url": "core:index"},
     ],
 }
+
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"

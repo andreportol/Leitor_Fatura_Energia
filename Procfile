@@ -1,2 +1,3 @@
-web: gunicorn LEITOR_FATURA.wsgi --log-file - 
+web: python manage.py collectstatic --noinput && gunicorn LEITOR_FATURA.wsgi
+
 
