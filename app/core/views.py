@@ -569,6 +569,7 @@ class ProcessamentoView(LoginRequiredMixin, TemplateView):
             historico.append(
                 {
                     'rotulo': mes,
+                    'mes': mes,
                     'consumo_display': consumo or 'N/A',
                     'has_consumo': bool(consumo),
                 }
