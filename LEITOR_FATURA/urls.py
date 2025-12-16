@@ -3,6 +3,8 @@ from django.contrib import admin
 from django.contrib.staticfiles.storage import staticfiles_storage
 from django.urls import include, path
 from django.views.generic import RedirectView
+from django.conf.urls.static import static
+
 
 try:
     FAVICON_URL = staticfiles_storage.url('img/logomarca.png')
@@ -20,4 +22,4 @@ urlpatterns = [
         ),
     ),
     path('', include('app.core.urls', namespace='core')),
-]
+] + static(settings.MEDIA_URL, document_root = settings.MEDIA_ROOT)

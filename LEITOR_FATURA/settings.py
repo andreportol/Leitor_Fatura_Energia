@@ -184,24 +184,14 @@ USE_TZ = True
 
 USE_L10N = True # serve para deixar o formato da data em 'd/m/Y'
 
-LANGUAGE_CODE='pt-br'
-
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = '/static/'
-STATIC_ROOT = BASE_DIR / 'staticfiles'
-STORAGES = {
-    "default": {
-        "BACKEND": "django.core.files.storage.FileSystemStorage",
-    },
-    "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
-    },
-}
-if not DEBUG:
-    # Evita erro 500 caso o manifest dos estáticos não exista (deploys sem collectstatic).
-    WHITENOISE_MANIFEST_STRICT = False
+MEDIA_URL = '/media/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles') 
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field

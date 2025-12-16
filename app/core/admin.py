@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from django import forms
+from django.conf import settings
 from django.contrib import admin
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import identify_hasher, make_password
@@ -11,8 +12,18 @@ from .models import Cliente, ClienteContato, CreditHistory
 
 User = get_user_model()
 
-# Branding for admin panel
-logo_url = static('img/logomarca.png')
+# Branding for admin panel (fallback if manifest/static not ready)
+def _safe_static(path: str) -> str:
+    try:
+        return static(path)
+    except Exception:
+        base = getattr(settings, 'STATIC_URL', '/static/')
+        if not base.endswith('/'):
+            base += '/'
+        return f"{base}{path}"
+
+
+logo_url = _safe_static('img/logomarca.png')
 admin.site.site_header = mark_safe(f'<img src="{logo_url}" alt="ALP SISTEMAS" style="height:40px; vertical-align:middle; margin-right:8px;"> ALP SISTEMAS')
 admin.site.site_title = 'ALP SISTEMAS'
 admin.site.index_title = 'Painel Administrativo'
