@@ -9,11 +9,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const bsCollapse = navbarCollapse && window.bootstrap
         ? new bootstrap.Collapse(navbarCollapse, { toggle: false })
         : null;
+    const contactForm = document.getElementById('contactForm');
+    const contactStatus = document.getElementById('contactStatus');
+    const contactNameInput = document.getElementById('name');
+    const phoneInput = document.getElementById('phone');
 
     function setActiveNavLink(link) {
         navLinks.forEach(nav => nav.classList.remove('active'));
         if (link) {
             link.classList.add('active');
+        }
+    }
+
+    function focusContactName() {
+        if (!contactNameInput) return;
+        try {
+            contactNameInput.focus({ preventScroll: true });
+        } catch (error) {
+            contactNameInput.focus();
         }
     }
 
@@ -36,12 +49,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (bsCollapse && navbarCollapse.classList.contains('show')) {
                 bsCollapse.hide();
             }
+
+            if (targetId === '#contato') {
+                focusContactName();
+            }
         });
     });
-
-    const contactForm = document.getElementById('contactForm');
-    const contactStatus = document.getElementById('contactStatus');
-    const contactNameInput = document.getElementById('name');
 
     if (contactForm && contactStatus) {
         contactForm.addEventListener('submit', async (e) => {
@@ -78,6 +91,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 contactStatus.textContent = 'Ocorreu um erro ao enviar. Tente novamente em instantes.';
                 contactStatus.className = 'text-center mt-3 text-danger';
             }
+        });
+    }
+
+    if (window.location.hash === '#contato') {
+        setTimeout(focusContactName, 300);
+    }
+
+    function formatPhone(value) {
+        const digits = (value || '').replace(/\D/g, '').slice(0, 11);
+        if (!digits) return '';
+        if (digits.length <= 2) return `(${digits}`;
+        if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+        if (digits.length <= 10) return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+        return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+    }
+
+    if (phoneInput) {
+        phoneInput.value = formatPhone(phoneInput.value);
+        phoneInput.addEventListener('input', (event) => {
+            event.target.value = formatPhone(event.target.value);
         });
     }
 });
