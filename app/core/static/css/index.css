@@ -120,6 +120,21 @@ h1, h2, h3, h4, h5, h6 {
     background-color: #f8fff9;
 }
 
+.whatsapp-highlight {
+    color: var(--success-color);
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    font-size: 0.9rem;
+    margin-top: 0.35rem;
+}
+
+.contact-subtitle {
+    font-size: 1.25rem;
+    margin-top: 0.35rem;
+    margin-bottom: 1.2rem;
+}
+
 .process-step {
     display: flex;
     align-items: center;
