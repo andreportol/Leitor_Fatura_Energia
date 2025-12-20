@@ -72,11 +72,11 @@
                                     <span>Login bloqueado. Aguarde <strong id="lockout-timer" data-remaining="{{ lockout_remaining_seconds }}"></strong> para tentar novamente.</span>
                                 </div>
                             {% endif %}
-                            <form method="post" action="{% url 'core:login' %}">
+                            <form method="post" action="{% url 'core:login' %}" autocomplete="off">
                                 {% csrf_token %}
                                 <div class="mb-3">
                                     <label for="email" class="form-label">E-mail</label>
-                                    <input type="email" class="form-control" id="email" name="email" placeholder="voce@empresa.com" required autofocus>
+                                    <input type="email" class="form-control" id="email" name="email" placeholder="voce@empresa.com" autocomplete="off" autocapitalize="none" spellcheck="false" data-clear-on-load="true" required autofocus>
                                 </div>
                                 <div class="mb-4">
                                     <label for="password" class="form-label">Senha</label>
@@ -107,8 +107,15 @@
     <script src="{% static 'js/login.js' %}"></script>
     <script>
         (() => {
+            const emailInput = document.getElementById('email');
             const passwordInput = document.getElementById('password');
             const toggle = document.getElementById('toggleLoginPassword');
+
+            // Garante que o campo de e-mail comece vazio mesmo com autofill do navegador
+            if (emailInput && emailInput.dataset.clearOnLoad === 'true') {
+                emailInput.value = '';
+            }
+
             if (!passwordInput || !toggle) return;
             toggle.addEventListener('click', () => {
                 const isPassword = passwordInput.type === 'password';

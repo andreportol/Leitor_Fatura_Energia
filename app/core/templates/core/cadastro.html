@@ -85,7 +85,7 @@
                                         <div class="alert alert-{{ message.tags|default:'info' }} mb-3" role="alert">{{ message }}</div>
                                     {% endfor %}
                                 {% endif %}
-                                <form id="companyForm" method="post" action="{% url 'core:cadastro' %}" enctype="multipart/form-data">
+                                <form id="companyForm" method="post" action="{% url 'core:cadastro' %}" enctype="multipart/form-data" autocomplete="off">
                                     {% csrf_token %}
                                     <div class="mb-3">
                                         <label for="companyName" class="form-label">Nome da empresa</label>
@@ -93,7 +93,7 @@
                                     </div>
                                     <div class="mb-3">
                                         <label for="companyEmail" class="form-label">E-mail para contato</label>
-                                        <input type="email" class="form-control" id="companyEmail" name="companyEmail" value="{{ form_data.companyEmail|default:'' }}" required>
+                                        <input type="email" class="form-control" id="companyEmail" name="companyEmail" value="{{ form_data.companyEmail|default_if_none:'' }}" data-has-value="{{ form_data.companyEmail|yesno:'true,false' }}" autocomplete="off" autocapitalize="none" spellcheck="false" required>
                                     </div>
                                     <div class="mb-3">
                                         <label for="companyPhone" class="form-label">Telefone (WhatsApp)</label>
@@ -178,6 +178,13 @@
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             var phoneInput = document.getElementById('companyPhone');
+            var companyEmail = document.getElementById('companyEmail');
+
+            // Evita que navegadores preencham automaticamente o e-mail ao carregar a página
+            if (companyEmail && companyEmail.dataset.hasValue !== 'true') {
+                companyEmail.value = '';
+            }
+
             if (!phoneInput) return;
 
             function formatPhone(value) {
